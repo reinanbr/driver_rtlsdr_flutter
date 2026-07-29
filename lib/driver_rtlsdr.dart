@@ -1,39 +1,39 @@
-/// Driver Android para dongles RTL-SDR (RTL2832U) via USB-OTG.
+/// Android driver for RTL-SDR (RTL2832U) dongles via USB-OTG.
 ///
-/// Extraído do app `rtl-sdr mobile` (pasta irmã deste pacote) como um
-/// plugin Flutter reutilizável — o núcleo nativo (C, GPLv2, ver
-/// `android/src/main/cpp/`) não muda entre este pacote e o app original; o
-/// que muda é que aqui ele é exposto como uma API pública pra qualquer app
-/// Flutter de rádio definido por software construir sua própria UI em
-/// cima, em vez de vir embutido dentro de um app específico.
+/// Extracted from the `rtl-sdr mobile` app (sibling folder of this package) as a
+/// reusable Flutter plugin — the native core (C, GPLv2, see
+/// `android/src/main/cpp/`) doesn't change between this package and the original
+/// app; what changes is that here it's exposed as a public API for any
+/// software-defined-radio Flutter app to build its own UI on
+/// top of, instead of being embedded inside one specific app.
 ///
-/// ## O que este pacote NÃO faz
+/// ## What this package does NOT do
 ///
-/// De propósito, pra manter o driver focado: não tem UI, não gerencia um
-/// foreground service (mantendo o processo vivo com o app em segundo plano
-/// durante streaming — isso é decisão de UX de cada app consumidor), e não
-/// decide onde salvar gravações (`shim_start_recording` recebe um caminho
-/// absoluto — o app escolhe onde, tipicamente via `path_provider`).
+/// By design, to keep the driver focused: it has no UI, doesn't manage a
+/// foreground service (keeping the process alive with the app in the background
+/// during streaming — that's a UX decision for each consuming app), and doesn't
+/// decide where to save recordings (`shim_start_recording` receives an
+/// absolute path — the app chooses where, typically via `path_provider`).
 ///
-/// ## Como montar um app em cima
+/// ## How to build an app on top of it
 ///
-/// 1. [UsbState] + [UsbChannel]: detecta o dongle, pede permissão, escuta o
-///    evento `deviceReady` (só então o driver nativo está aberto e pronto).
-/// 2. [NativeBindings]: sintonia (`shimSetFrequencyHz`), modo de demodulação
-///    ([DemodMode] — WFM/NFM/AM), ganho, squelch, estéreo, RDS, streaming
-///    (`shimStartStreaming`/`shimStopStreaming`), estatísticas ([ShimStats],
+/// 1. [UsbState] + [UsbChannel]: detects the dongle, requests permission, listens for the
+///    `deviceReady` event (only then is the native driver open and ready).
+/// 2. [NativeBindings]: tuning (`shimSetFrequencyHz`), demodulation mode
+///    ([DemodMode] — WFM/NFM/AM), gain, squelch, stereo, RDS, streaming
+///    (`shimStartStreaming`/`shimStopStreaming`), statistics ([ShimStats],
 ///    via `shimGetStats`), RDS ([ShimRdsInfo], via `shimGetRdsInfo`),
-///    espectro (`shimGetSpectrumDb`) e gravação (`shimStartRecording`).
-/// 3. O app monta seus próprios controllers (`ChangeNotifier` + polling
-///    periódico é o padrão usado no app de referência) por cima dessas
-///    chamadas — ver `example/` neste pacote para uma implementação mínima
-///    funcional, e o app `rtl-sdr mobile` (irmão deste pacote) para uma
-///    implementação completa (estéreo, RDS, scan automático, gravação,
-///    sintonizador visual por espectro).
+///    spectrum (`shimGetSpectrumDb`) and recording (`shimStartRecording`).
+/// 3. The app builds its own controllers (`ChangeNotifier` + periodic
+///    polling is the pattern used in the reference app) on top of these
+///    calls — see `example/` in this package for a minimal working
+///    implementation, and the `rtl-sdr mobile` app (sibling of this package) for a
+///    complete implementation (stereo, RDS, automatic scan, recording,
+///    visual spectrum-based tuner).
 ///
-/// Ver README.md pra detalhes de integração (manifest, permissões) e
-/// `docs/` no app `rtl-sdr mobile` pra como o driver nativo em si foi
-/// projetado (PLL do piloto estéreo, decodificador RDS, etc).
+/// See README.md for integration details (manifest, permissions) and
+/// `docs/` in the `rtl-sdr mobile` app for how the native driver itself was
+/// designed (stereo pilot PLL, RDS decoder, etc).
 library;
 
 export 'src/demod_mode.dart';

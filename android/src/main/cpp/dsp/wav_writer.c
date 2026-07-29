@@ -9,9 +9,9 @@ struct wav_writer {
     uint64_t data_bytes_written;
 };
 
-/* Header WAV canônico de 44 bytes (PCM). Os dois campos de tamanho (RIFF
- * chunk size e data chunk size) são escritos como 0 aqui e corrigidos em
- * wav_writer_close() — streaming, então o tamanho final só é conhecido lá. */
+/* Canonical 44-byte WAV header (PCM). The two size fields (RIFF chunk
+ * size and data chunk size) are written as 0 here and fixed up in
+ * wav_writer_close() — streaming, so the final size is only known there. */
 static int write_placeholder_header(FILE *fp, uint32_t sample_rate_hz, int channels) {
     uint16_t num_channels = (uint16_t)channels;
     uint16_t bits_per_sample = 16;
@@ -80,8 +80,8 @@ void wav_writer_close(wav_writer_t *w) {
         return;
     }
     if (w->fp) {
-        /* 36 = tamanho do header inteiro (44 bytes) menos os 8 bytes de
-         * "RIFF"+tamanho que não entram na própria contagem do RIFF. */
+        /* 36 = size of the whole header (44 bytes) minus the 8 bytes of
+         * "RIFF"+size that aren't counted in the RIFF size itself. */
         uint32_t data_size = (uint32_t)w->data_bytes_written;
         uint32_t riff_size = 36u + data_size;
 

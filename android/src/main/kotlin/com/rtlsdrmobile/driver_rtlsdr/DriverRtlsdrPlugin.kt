@@ -17,24 +17,24 @@ import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
 
 /**
- * Núcleo do plugin driver_rtlsdr: detecta o dongle RTL-SDR via [UsbManager],
- * solicita permissão, e repassa o file descriptor da `UsbDeviceConnection`
- * pro driver nativo via JNI (`nativeOpenWithFd`) — `libnative_rtlsdr.so`,
- * que abre o dongle com `libusb_wrap_sys_device()` + `rtlsdr_open_fd()` (ver
+ * Core of the driver_rtlsdr plugin: detects the RTL-SDR dongle via [UsbManager],
+ * requests permission, and passes the `UsbDeviceConnection` file descriptor
+ * on to the native driver via JNI (`nativeOpenWithFd`) — `libnative_rtlsdr.so`,
+ * which opens the dongle with `libusb_wrap_sys_device()` + `rtlsdr_open_fd()` (see
  * `android/src/main/cpp/rtlsdr_shim.c`).
  *
- * A partir daí, sintonia/streaming/estatísticas/RDS/gravação são
- * controlados pelo lado Dart direto via FFI na mesma biblioteca nativa (ver
- * `lib/src/native_bindings.dart`) — esta classe só cuida do ciclo de vida
- * da permissão/conexão USB, exposto ao Dart por um `MethodChannel`
- * (comandos) e um `EventChannel` (attached/detached/permissionGranted/
+ * From that point on, tuning/streaming/statistics/RDS/recording are
+ * controlled directly from the Dart side via FFI in the same native library (see
+ * `lib/src/native_bindings.dart`) — this class only handles the lifecycle
+ * of the USB permission/connection, exposed to Dart through a `MethodChannel`
+ * (commands) and an `EventChannel` (attached/detached/permissionGranted/
  * permissionDenied/deviceReady/error).
  *
- * Diferente do app rtl-sdr_mobile original (de onde este driver foi
- * extraído em forma de plugin), este módulo NÃO gerencia um foreground
- * service — manter o processo vivo em segundo plano durante o streaming é
- * uma decisão de UX específica de cada app consumidor (ver README.md),
- * não responsabilidade do driver.
+ * Unlike the original rtl-sdr_mobile app (from which this driver was
+ * extracted into plugin form), this module does NOT manage a foreground
+ * service — keeping the process alive in the background during streaming is
+ * a UX decision specific to each consuming app (see README.md),
+ * not the driver's responsibility.
  */
 class DriverRtlsdrPlugin :
     FlutterPlugin,
@@ -108,7 +108,7 @@ class DriverRtlsdrPlugin :
             "requestPermission" -> {
                 val device = findFirstDevice()
                 if (device == null) {
-                    result.error("NO_DEVICE", "Nenhum dispositivo USB conectado", null)
+                    result.error("NO_DEVICE", "No USB device connected", null)
                     return
                 }
                 requestPermission(device)
@@ -153,18 +153,18 @@ class DriverRtlsdrPlugin :
     // ---- UsbAttachReceiver.Listener ---------------------------------------
 
     override fun onDeviceAttached(device: UsbDevice) {
-        Log.i(TAG, "Dispositivo USB conectado: ${device.deviceName} (${device.vendorId}:${device.productId})")
+        Log.i(TAG, "USB device connected: ${device.deviceName} (${device.vendorId}:${device.productId})")
         eventSink?.success(eventMap("attached", device))
     }
 
     override fun onDeviceDetached(device: UsbDevice) {
-        Log.i(TAG, "Dispositivo USB desconectado: ${device.deviceName}")
+        Log.i(TAG, "USB device disconnected: ${device.deviceName}")
         closeNativeDevice()
         eventSink?.success(mapOf("type" to "detached"))
     }
 
     override fun onPermissionResult(device: UsbDevice, granted: Boolean) {
-        Log.i(TAG, "Resultado da permissão USB para ${device.deviceName}: $granted")
+        Log.i(TAG, "USB permission result for ${device.deviceName}: $granted")
         if (granted) {
             eventSink?.success(eventMap("permissionGranted", device))
             openNativeDevice(device)
@@ -173,28 +173,28 @@ class DriverRtlsdrPlugin :
         }
     }
 
-    // ---- Driver nativo --------------------------------------------------
+    // ---- Native driver ----------------------------------------------------
 
     private fun openNativeDevice(device: UsbDevice) {
         val connection = usbManager.openDevice(device)
         if (connection == null) {
-            Log.e(TAG, "usbManager.openDevice() retornou null para ${device.deviceName}")
-            eventSink?.success(mapOf("type" to "error", "message" to "Falha ao abrir UsbDeviceConnection"))
+            Log.e(TAG, "usbManager.openDevice() returned null for ${device.deviceName}")
+            eventSink?.success(mapOf("type" to "error", "message" to "Failed to open UsbDeviceConnection"))
             return
         }
 
         val status = nativeOpenWithFd(connection.fileDescriptor, device.vendorId, device.productId)
         if (status != 0) {
-            Log.e(TAG, "nativeOpenWithFd falhou com status $status")
+            Log.e(TAG, "nativeOpenWithFd failed with status $status")
             connection.close()
             eventSink?.success(
-                mapOf("type" to "error", "message" to "Driver nativo falhou ao abrir o dongle (status $status)"),
+                mapOf("type" to "error", "message" to "Native driver failed to open the dongle (status $status)"),
             )
             return
         }
 
         usbConnection = connection
-        Log.i(TAG, "Driver nativo aberto com sucesso para ${device.deviceName}")
+        Log.i(TAG, "Native driver opened successfully for ${device.deviceName}")
         eventSink?.success(eventMap("deviceReady", device))
     }
 

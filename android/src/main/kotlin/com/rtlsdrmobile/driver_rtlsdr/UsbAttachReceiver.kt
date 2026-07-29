@@ -7,9 +7,9 @@ import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbManager
 
 /**
- * Recebe os broadcasts do sistema Android relacionados ao ciclo de vida do
- * USB (plug/unplug) e o resultado do diálogo de permissão que
- * [DriverRtlsdrPlugin] dispara via PendingIntent com a action
+ * Receives Android system broadcasts related to the USB lifecycle
+ * (plug/unplug) and the result of the permission dialog that
+ * [DriverRtlsdrPlugin] triggers via PendingIntent with the action
  * [actionUsbPermission].
  */
 class UsbAttachReceiver(

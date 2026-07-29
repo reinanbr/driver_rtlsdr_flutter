@@ -18,8 +18,8 @@ int spectrum_fft_init(spectrum_fft_t *s, int fft_size) {
         return -1;
     }
 
-    /* janela de Hann — reduz vazamento espectral (spectral leakage) das
-     * bordas do bloco analisado. */
+    /* Hann window — reduces spectral leakage from the edges of the
+     * analyzed block. */
     for (int n = 0; n < fft_size; n++) {
         s->window[n] = 0.5f * (1.0f - cosf(2.0f * SPECTRUM_PI * (float)n / (float)(fft_size - 1)));
     }
@@ -50,9 +50,9 @@ void spectrum_fft_process(spectrum_fft_t *s, const float *in_i, const float *in_
 
     kiss_fft((kiss_fft_cfg)s->cfg, in, out);
 
-    /* fftshift: bin 0 da FFT crua é DC; queremos DC no meio (metade
-     * negativa da banda antes, metade positiva depois — ordem natural de
-     * exibição de espectro). */
+    /* fftshift: bin 0 of the raw FFT is DC; we want DC in the middle
+     * (negative half of the band first, positive half after — the
+     * natural order for spectrum display). */
     int half = n / 2;
     for (int k = 0; k < n; k++) {
         int src = (k + half) % n;

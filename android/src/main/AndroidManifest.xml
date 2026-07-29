@@ -1,11 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
   package="com.rtlsdrmobile.driver_rtlsdr">
-    <!-- Requisito de hardware do driver — mesclado no manifest do app
-         consumidor pelo merger do Gradle. O app consumidor ainda precisa
-         declarar, na sua PRÓPRIA Activity, o intent-filter de
-         USB_DEVICE_ATTACHED + o meta-data de device_filter (ver
-         README.md "Integrando num app novo") — um plugin/library module
-         não pode contribuir intent-filters pra uma Activity que não é
-         dele. -->
+    <!-- Driver hardware requirement — merged into the consuming app's manifest
+         by the Gradle merger. The consuming app still needs to declare,
+         on its OWN Activity, the USB_DEVICE_ATTACHED intent-filter + the
+         device_filter meta-data (see README.md "Integrating into a new
+         app") — a plugin/library module cannot contribute intent-filters
+         to an Activity that isn't its own. -->
     <uses-feature android:name="android.hardware.usb.host" android:required="true" />
 </manifest>

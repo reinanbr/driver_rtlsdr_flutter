@@ -1,67 +1,71 @@
 # driver_rtlsdr
 
-Driver Android (Flutter plugin) para dongles RTL-SDR (chipset RTL2832U) via
-USB-OTG. Extraído do app [`rtl-sdr mobile`](../rtl-sdr%20mobile) (pasta irmã
-deste pacote) pra que outros apps Flutter de rádio definido por software
-possam construir sua própria UI/UX em cima do mesmo núcleo nativo, em vez de
-reimplementar USB + libusb + librtlsdr + DSP do zero.
+[![CI](https://github.com/reinanbr/driver_rtlsdr_flutter/actions/workflows/ci.yml/badge.svg)](https://github.com/reinanbr/driver_rtlsdr_flutter/actions/workflows/ci.yml)
+[![License: GPL v2 or later](https://img.shields.io/badge/license-GPLv2--or--later-blue.svg)](LICENSE)
 
-O núcleo nativo (C, `android/src/main/cpp/`) é **idêntico** ao do app de
-origem — mesmo pipeline: permissão/abertura USB → streaming de IQ bruto →
-decimação em dois estágios → demodulação (WFM/NFM/AM, com estéreo e RDS em
-WFM) → PCM pro alto-falante (Oboe), com gravação em WAV e leitura de
-espectro pra waterfall/visualização.
+Android driver (Flutter plugin) for RTL-SDR dongles (RTL2832U chipset) over
+USB-OTG. Extracted from the [`rtl-sdr mobile`](../rtl-sdr%20mobile) app
+(sibling folder to this package) so that other Flutter software-defined-radio
+apps can build their own UI/UX on top of the same native core, instead of
+reimplementing USB + libusb + librtlsdr + DSP from scratch.
 
-## O que este pacote fornece
+The native core (C, `android/src/main/cpp/`) is **identical** to the one in
+the source app — same pipeline: USB permission/open → raw IQ streaming →
+two-stage decimation → demodulation (WFM/NFM/AM, with stereo and RDS on WFM)
+→ PCM to the speaker (Oboe), with WAV recording and spectrum readout for
+waterfall/visualization.
 
-- **USB**: detecção do dongle, fluxo de permissão (`UsbState`/`UsbChannel`,
-  `MethodChannel`/`EventChannel` sobre `DriverRtlsdrPlugin.kt`).
-- **Sintonia**: frequência, taxa de amostragem.
-- **Demodulação**: WFM (com estéreo e RDS), NFM, AM (`DemodMode`).
-- **Estéreo WFM**: PLL de piloto de 19kHz, liga/desliga ao vivo
-  (`shimSetStereoEnabled`), lock reportado em `ShimStats.stereoLocked`.
+## What this package provides
+
+- **USB**: dongle detection, permission flow (`UsbState`/`UsbChannel`,
+  `MethodChannel`/`EventChannel` over `DriverRtlsdrPlugin.kt`).
+- **Tuning**: frequency, sample rate.
+- **Demodulation**: WFM (with stereo and RDS), NFM, AM (`DemodMode`).
+- **WFM stereo**: 19kHz pilot PLL, live on/off toggle
+  (`shimSetStereoEnabled`), lock reported in `ShimStats.stereoLocked`.
 - **RDS**: PI/PTY/TP/TA/PS/RadioText (`ShimRdsInfo`, via `shimGetRdsInfo`),
-  liga/desliga ao vivo (`shimSetRdsEnabled`).
-- **Ganho**: automático (AGC) ou manual, lista de ganhos suportados pelo
+  live on/off toggle (`shimSetRdsEnabled`).
+- **Gain**: automatic (AGC) or manual, list of gains supported by the
   tuner.
-- **Squelch**: NFM/AM (WFM não usa — rádio comercial não teria squelch).
-- **Espectro**: snapshot em dB da banda inteira capturada, pronto pra
-  plotar (`shimGetSpectrumDb`).
-- **Gravação**: grava o PCM demodulado (mono ou estéreo, o que a sessão
-  estiver produzindo) direto num WAV (`shimStartRecording`/
+- **Squelch**: NFM/AM (WFM doesn't use it — a commercial radio wouldn't have
+  squelch).
+- **Spectrum**: dB snapshot of the whole captured band, ready to plot
+  (`shimGetSpectrumDb`).
+- **Recording**: records the demodulated PCM (mono or stereo, whatever the
+  session is producing) directly to a WAV file (`shimStartRecording`/
   `shimStopRecording`).
-- **Estatísticas**: taxa de IQ, overflow de ring buffer, nível de RF/áudio
+- **Statistics**: IQ rate, ring buffer overflow, RF/audio level
   (`ShimStats`, via `shimGetStats`).
 
-## O que este pacote deliberadamente NÃO fornece
+## What this package deliberately does NOT provide
 
-- **UI**: zero widgets. O app consumidor monta a interface.
-- **Foreground service**: manter o processo vivo em segundo plano durante
-  streaming é decisão de UX de cada app — não vem embutido aqui. Um app
-  consumidor que precise disso pode implementar seu próprio (ver
-  `StreamingService.kt` no app `rtl-sdr mobile` como referência).
-- **Onde salvar gravações**: `shimStartRecording` recebe um caminho
-  absoluto — o app escolhe (tipicamente via `path_provider`).
-- **Presets, scan automático, carrossel/sintonizador visual**: são lógica de
-  aplicação construída em cima da API deste driver, não parte dele. O app
-  `rtl-sdr mobile` tem implementações de referência de tudo isso
+- **UI**: zero widgets. The consuming app builds the interface.
+- **Foreground service**: keeping the process alive in the background during
+  streaming is a UX decision for each app — it isn't bundled here. A
+  consuming app that needs this can implement its own (see
+  `StreamingService.kt` in the `rtl-sdr mobile` app as a reference).
+- **Where to save recordings**: `shimStartRecording` takes an absolute
+  path — the app chooses it (typically via `path_provider`).
+- **Presets, automatic scanning, visual carousel/tuner**: these are
+  application logic built on top of this driver's API, not part of it. The
+  `rtl-sdr mobile` app has reference implementations of all of this
   (`lib/radio/scan_controller.dart`, `lib/widgets/spectrum_tuner.dart`,
-  etc.) que podem ser adaptadas.
+  etc.) that can be adapted.
 
-## Instalação
+## Installation
 
 ```yaml
 dependencies:
   driver_rtlsdr:
-    path: ../driver_rtlsdr # ou uma referência git/pub, se publicado
+    path: ../driver_rtlsdr # or a git/pub reference, if published
 ```
 
-## Integrando num app novo
+## Integrating into a new app
 
-1. **`AndroidManifest.xml`** do seu app — adicione o intent-filter de
-   auto-abertura ao plugar o dongle (opcional, mas é o que faz o Android
-   oferecer abrir seu app quando o usuário conecta o dongle) e aponte o
-   `meta-data` pro filtro de VID/PID já incluído neste pacote:
+1. **`AndroidManifest.xml`** of your app — add the auto-open intent filter
+   for when the dongle is plugged in (optional, but it's what makes Android
+   offer to open your app when the user connects the dongle) and point the
+   `meta-data` to the VID/PID filter already included in this package:
 
    ```xml
    <activity ...>
@@ -74,68 +78,71 @@ dependencies:
    </activity>
    ```
 
-   `@xml/device_filter` resolve pro recurso do próprio `driver_rtlsdr`
-   (mesclado no build pelo merger de recursos do Gradle — não precisa
-   copiar nada). `android.hardware.usb.host` já é declarado pelo manifest
-   do plugin e também é mesclado automaticamente.
+   `@xml/device_filter` resolves to `driver_rtlsdr`'s own resource (merged
+   into the build by Gradle's resource merger — no need to copy anything).
+   `android.hardware.usb.host` is already declared by the plugin's manifest
+   and is also merged automatically.
 
-2. **`minSdk = 26`** — exigido pelo caminho de baixa latência do
-   Oboe/AAudio usado internamente pra saída de áudio.
+2. **`minSdk = 26`** — required by the Oboe/AAudio low-latency path used
+   internally for audio output.
 
-3. **Ciclo de vida**: `UsbState` + `UsbChannel` (chame
-   `refreshConnectedDevices()` ao iniciar sua tela — pega o caso do dongle
-   já estar plugado quando o app abre) → `requestPermission()` → escute o
-   evento `deviceReady` → a partir daí, `NativeBindings.shim*` estão livres
-   pra usar (`shimSetFrequencyHz`, `shimSetDemodMode`,
-   `shimStartStreaming`, etc.).
+3. **Lifecycle**: `UsbState` + `UsbChannel` (call
+   `refreshConnectedDevices()` when your screen starts — this covers the
+   case where the dongle is already plugged in when the app opens) →
+   `requestPermission()` → listen for the `deviceReady` event → from there,
+   `NativeBindings.shim*` are free to use (`shimSetFrequencyHz`,
+   `shimSetDemodMode`, `shimStartStreaming`, etc.).
 
-4. Ver `example/` neste pacote pra uma implementação mínima e funcional
-   completa (permissão → sintonia por slider → seleção de modo →
-   start/stop streaming → estatísticas ao vivo, incluindo lock do piloto
-   estéreo).
+4. See `example/` in this package for a minimal, fully working
+   implementation (permission → tuning via slider → mode selection →
+   start/stop streaming → live statistics, including stereo pilot lock).
 
-## Testes
+## Tests
 
-- `test/` — testes de unidade Dart puros, rodam no host (sem Android nem
-  dongle): `DemodMode` (valores nativos, round-trip, squelch) e o
-  **tamanho em bytes dos structs FFI** (`ShimStats`/`ShimRdsInfo`) contra o
-  layout esperado calculado a partir de `rtlsdr_shim.h` — pega o erro mais
-  comum ao evoluir a API nativa (esquecer de espelhar um campo novo dos
-  dois lados). Rodar: `flutter test`.
-- `example/integration_test/` — roda num device/emulador Android de
-  verdade; confirma que `libnative_rtlsdr.so` compila, linka e carrega
-  nesse ABI específico, e que uma chamada FFI real funciona — sem precisar
-  de um dongle fisicamente conectado. Rodar:
+- `test/` — pure Dart unit tests, run on the host (no Android or dongle
+  needed): `DemodMode` (native values, round-trip, squelch) and the
+  **byte size of the FFI structs** (`ShimStats`/`ShimRdsInfo`) against the
+  expected layout computed from `rtlsdr_shim.h` — catches the most common
+  mistake when evolving the native API (forgetting to mirror a new field on
+  both sides). Run with: `flutter test`.
+- `example/integration_test/` — runs on a real Android device/emulator;
+  confirms that `libnative_rtlsdr.so` builds, links, and loads on that
+  specific ABI, and that a real FFI call works — without needing a dongle
+  physically connected. Run with:
   `cd example && flutter test integration_test`.
-- **Validação contra hardware real**: o núcleo nativo deste pacote é
-  byte-a-byte o mesmo do app `rtl-sdr mobile`, que foi testado ao vivo
-  contra um dongle RTL2838U real (permissão USB, sintonia, streaming,
-  troca de modo, lock do piloto estéreo, sincronismo e decodificação de
-  RDS contra uma estação real, gravação, scan) — ver
-  `../rtl-sdr mobile/docs/how-it-was-built.md` pros resultados completos
-  dessa validação. O **app de exemplo deste pacote especificamente** teve
-  o build nativo validado (compilou e linkou limpo do zero, todas as
-  fontes vendorizadas/adaptadas corretamente) e foi instalado com sucesso
-  num device real; o smoke test visual ao vivo (abrir a tela, pedir
-  permissão, sintonizar) ficou pendente porque o aparelho de teste ficou
-  sem bateria (5%) no meio da sessão — não uma falha do app. Fica como
-  primeiro passo de validação recomendado antes de publicar/depender deste
-  pacote em produção.
+- **Validation against real hardware**: this package's native core is
+  byte-for-byte the same as the `rtl-sdr mobile` app, which was tested live
+  against a real RTL2838U dongle (USB permission, tuning, streaming, mode
+  switching, stereo pilot lock, RDS sync/decoding against a real station,
+  recording, scanning) — see
+  `../rtl-sdr mobile/docs/how-it-was-built.md` for the full results of that
+  validation. **This package's example app specifically** had its native
+  build validated (compiled and linked cleanly from scratch, all
+  vendored/adapted sources building correctly) and was successfully
+  installed on a real device; the live visual smoke test (opening the
+  screen, requesting permission, tuning) was left pending because the test
+  device's battery ran out (5%) mid-session — not an app failure. This is
+  the recommended first validation step before publishing/depending on this
+  package in production.
 
-## Licença
+## License
 
-GPLv2, ou (a seu critério) qualquer versão posterior — ver
-[`LICENSE`](LICENSE). Este driver vincula `librtlsdr` (GPLv2-or-later), o
-que exige que qualquer app que o use seja distribuído sob GPL. `libusb`
-(LGPL-2.1) e KissFFT (BSD-3-Clause) são vendorizados em
-`android/src/main/cpp/vendor/`; Oboe (Apache-2.0) é dependência via
-Gradle/Prefab. Ver `LICENSE` para o detalhamento completo.
+GPLv2, or (at your option) any later version — see [`LICENSE`](LICENSE).
+This driver links `librtlsdr` (GPLv2-or-later), which requires that any app
+using it be distributed under the GPL. `libusb` (LGPL-2.1) and KissFFT
+(BSD-3-Clause) are vendored under `android/src/main/cpp/vendor/`; Oboe
+(Apache-2.0) is a Gradle/Prefab dependency. See `LICENSE` for the full
+breakdown.
 
-## Arquitetura / como o driver nativo funciona
+## Architecture / how the native driver works
 
-Ver [`../rtl-sdr mobile/docs/how-it-was-built.md`](../rtl-sdr%20mobile/docs/how-it-was-built.md)
-(e a tradução [`como-foi-construido.md`](../rtl-sdr%20mobile/docs/como-foi-construido.md))
-pra uma explicação técnica detalhada de como a decodificação estéreo/RDS, o
-scan automático, a gravação e o sintonizador visual foram projetados e
-validados — esse documento descreve o mesmo núcleo nativo que este pacote
-expõe como plugin.
+See [`../rtl-sdr mobile/docs/how-it-was-built.md`](../rtl-sdr%20mobile/docs/how-it-was-built.md)
+(and its translation [`como-foi-construido.md`](../rtl-sdr%20mobile/docs/como-foi-construido.md))
+for a detailed technical explanation of how stereo/RDS decoding, automatic
+scanning, recording, and the visual tuner were designed and validated — that
+document describes the same native core this package exposes as a plugin.
+
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for how to
+set up your environment, coding conventions, and the PR process.

@@ -18,10 +18,10 @@ public:
         size_t frames = static_cast<size_t>(num_frames);
         size_t filled = cb_ ? cb_(out, frames, user_data_) : 0;
         if (filled < frames) {
-            /* Underrun: zera o restante em AMOSTRAS, não frames — cada
-             * frame tem channel_count_ amostras int16 (bug fácil de
-             * esquecer em estéreo: multiplicar só por sizeof(int16_t)
-             * deixaria metade do buffer de underrun com lixo). */
+            /* Underrun: zeroes out the rest in SAMPLES, not frames — each
+             * frame has channel_count_ int16 samples (an easy bug to miss
+             * in stereo: multiplying only by sizeof(int16_t) would leave
+             * half the underrun buffer with garbage). */
             std::memset(out + filled * channel_count_, 0, (frames - filled) * channel_count_ * sizeof(int16_t));
         }
         return oboe::DataCallbackResult::Continue;
@@ -41,7 +41,7 @@ std::unique_ptr<PullCallback> g_callback;
 extern "C" int audio_sink_start(uint32_t sample_rate_hz, int channel_count, audio_pull_cb_t pull_cb,
                                  void *user_data) {
     if (g_stream) {
-        return -1; /* já em execução */
+        return -1; /* already running */
     }
     if (channel_count != 1 && channel_count != 2) {
         return -1;
@@ -52,10 +52,10 @@ extern "C" int audio_sink_start(uint32_t sample_rate_hz, int channel_count, audi
     oboe::AudioStreamBuilder builder;
     builder.setDirection(oboe::Direction::Output)
         ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
-        // SharingMode::Shared (não Exclusive) por simplicidade no M3 — mais
-        // amplamente suportado entre fabricantes, sem precisar de fallback.
-        // Revisitar Exclusive+fallback se a latência não for boa o
-        // suficiente na prática.
+        // SharingMode::Shared (not Exclusive) for simplicity in M3 — more
+        // widely supported across manufacturers, without needing a
+        // fallback. Revisit Exclusive+fallback if latency isn't good
+        // enough in practice.
         ->setSharingMode(oboe::SharingMode::Shared)
         ->setFormat(oboe::AudioFormat::I16)
         ->setChannelCount(channel_count == 2 ? oboe::ChannelCount::Stereo : oboe::ChannelCount::Mono)

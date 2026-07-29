@@ -2,9 +2,9 @@
 
 #include <math.h>
 
-/* Coeficiente do bloqueador de DC (passa-alta de um polo): quanto mais
- * perto de 1.0, mais baixa a frequência de corte. 0.995 corta bem abaixo
- * de 100 Hz nas taxas de áudio usadas aqui (~32 kHz). */
+/* DC blocker coefficient (one-pole high-pass): the closer to 1.0, the
+ * lower the cutoff frequency. 0.995 cuts well below 100 Hz at the audio
+ * rates used here (~32 kHz). */
 #define AM_DC_BLOCK_COEFF 0.995f
 
 void am_demod_init(am_demod_t *d) {
@@ -20,10 +20,10 @@ void am_demod_process(am_demod_t *d, const float *in_i, const float *in_q, size_
         float i = in_i[n];
         float q = in_q[n];
 
-        /* detector de envelope: magnitude do baseband complexo */
+        /* envelope detector: magnitude of the complex baseband */
         float envelope = sqrtf(i * i + q * q);
 
-        /* bloqueador de DC: remove o offset grande que a portadora deixa */
+        /* DC blocker: removes the large offset left by the carrier */
         float dc_out = envelope - dc_prev_in + AM_DC_BLOCK_COEFF * dc_prev_out;
         dc_prev_in = envelope;
         dc_prev_out = dc_out;

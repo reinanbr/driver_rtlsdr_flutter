@@ -5,13 +5,13 @@ import 'package:driver_rtlsdr/driver_rtlsdr.dart';
 import 'package:ffi/ffi.dart' as pkg_ffi;
 import 'package:flutter/material.dart';
 
-/// App de exemplo mínimo do driver_rtlsdr — prova que a API pública do
-/// plugin (USB attach/permissão, sintonia, streaming, estatísticas) é
-/// suficiente pra montar um app funcional em cima, sem nenhuma UI vinda do
-/// plugin em si. Só WFM/NFM/AM + nível de RF/áudio + lock do piloto
-/// estéreo — sem RDS, scan, gravação ou presets (isso fica a cargo de cada
-/// app consumidor; ver o app `rtl-sdr mobile`, irmão deste pacote, para uma
-/// implementação completa).
+/// Minimal example app for driver_rtlsdr — proves that the plugin's public
+/// API (USB attach/permission, tuning, streaming, stats) is enough to build
+/// a working app on top of it, with no UI coming from the plugin itself.
+/// Only WFM/NFM/AM + RF/audio level + stereo pilot lock — no RDS, scan,
+/// recording or presets (that's left up to each consumer app; see the
+/// `rtl-sdr mobile` app, this package's sibling, for a full
+/// implementation).
 void main() => runApp(const ExampleApp());
 
 class ExampleApp extends StatefulWidget {
@@ -30,7 +30,9 @@ class _ExampleAppState extends State<ExampleApp> {
     super.initState();
     _usbState = UsbState();
     _usbChannel = UsbChannel(state: _usbState);
-    WidgetsBinding.instance.addPostFrameCallback((_) => _usbChannel.refreshConnectedDevices());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _usbChannel.refreshConnectedDevices(),
+    );
   }
 
   @override
@@ -44,12 +46,17 @@ class _ExampleAppState extends State<ExampleApp> {
     return MaterialApp(
       title: 'driver_rtlsdr example',
       theme: ThemeData(colorSchemeSeed: Colors.teal, useMaterial3: true),
-      darkTheme: ThemeData(colorSchemeSeed: Colors.teal, brightness: Brightness.dark, useMaterial3: true),
+      darkTheme: ThemeData(
+        colorSchemeSeed: Colors.teal,
+        brightness: Brightness.dark,
+        useMaterial3: true,
+      ),
       home: Scaffold(
         appBar: AppBar(title: const Text('driver_rtlsdr example')),
         body: ListenableBuilder(
           listenable: _usbState,
-          builder: (context, _) => _Body(usbState: _usbState, usbChannel: _usbChannel),
+          builder: (context, _) =>
+              _Body(usbState: _usbState, usbChannel: _usbChannel),
         ),
       ),
     );
@@ -70,40 +77,50 @@ class _Body extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text('Status: ${usbState.status.name}', style: Theme.of(context).textTheme.titleMedium),
+          Text(
+            'Status: ${usbState.status.name}',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
           if (device != null) ...[
             const SizedBox(height: 8),
-            Text('${device.vendorIdHex}:${device.productIdHex} '
-                '${device.productName ?? device.deviceName}'),
+            Text(
+              '${device.vendorIdHex}:${device.productIdHex} '
+              '${device.productName ?? device.deviceName}',
+            ),
           ],
           if (usbState.lastError != null) ...[
             const SizedBox(height: 8),
-            Text(usbState.lastError!, style: const TextStyle(color: Colors.red)),
+            Text(
+              usbState.lastError!,
+              style: const TextStyle(color: Colors.red),
+            ),
           ],
           const SizedBox(height: 16),
           if (usbState.status == UsbConnectionStatus.attached ||
               usbState.status == UsbConnectionStatus.permissionDenied)
             FilledButton(
               onPressed: usbChannel.requestPermission,
-              child: const Text('Conceder permissão USB'),
+              child: const Text('Grant USB permission'),
             ),
-          if (usbState.status == UsbConnectionStatus.permissionRequested) const CircularProgressIndicator(),
+          if (usbState.status == UsbConnectionStatus.permissionRequested)
+            const CircularProgressIndicator(),
           if (usbState.status == UsbConnectionStatus.noDevice)
             const Padding(
               padding: EdgeInsets.only(top: 8),
-              child: Text('Conecte um dongle RTL-SDR via cabo USB-OTG.'),
+              child: Text('Connect an RTL-SDR dongle via a USB-OTG cable.'),
             ),
-          if (usbState.status == UsbConnectionStatus.deviceReady) const _TunerDemo(),
+          if (usbState.status == UsbConnectionStatus.deviceReady)
+            const _TunerDemo(),
         ],
       ),
     );
   }
 }
 
-/// Demonstra o essencial da API de `NativeBindings` direto (sem nenhum
-/// controller/wrapper do plugin — o app de referência `rtl-sdr mobile` tem
-/// um `RadioController` completo, mas o driver em si não impõe esse
-/// padrão).
+/// Demonstrates the essentials of the `NativeBindings` API directly (with
+/// no plugin controller/wrapper — the reference app `rtl-sdr mobile` has a
+/// full `RadioController`, but the driver itself does not impose that
+/// pattern).
 class _TunerDemo extends StatefulWidget {
   const _TunerDemo();
 
@@ -141,7 +158,7 @@ class _TunerDemoState extends State<_TunerDemo> {
         _frequencyHz = hz;
         _lastError = null;
       } else {
-        _lastError = 'Falha ao definir frequência (status $status)';
+        _lastError = 'Failed to set frequency (status $status)';
       }
     });
   }
@@ -151,15 +168,15 @@ class _TunerDemoState extends State<_TunerDemo> {
     final wasStreaming = _isStreaming;
     if (wasStreaming) _stopStreaming();
     setState(() => _mode = mode);
-    // Trocar de modo só tem efeito no próximo shim_start_streaming() — a
-    // thread de DSP nativa lê o modo uma vez ao iniciar.
+    // Changing the mode only takes effect on the next shim_start_streaming()
+    // call — the native DSP thread reads the mode once, at startup.
     if (wasStreaming) _startStreaming();
   }
 
   void _startStreaming() {
     final status = NativeBindings.shimStartStreaming();
     if (status != 0) {
-      setState(() => _lastError = 'Falha ao iniciar streaming (status $status)');
+      setState(() => _lastError = 'Failed to start streaming (status $status)');
       return;
     }
     setState(() {
@@ -167,7 +184,10 @@ class _TunerDemoState extends State<_TunerDemo> {
       _lastError = null;
     });
     _statsTimer?.cancel();
-    _statsTimer = Timer.periodic(const Duration(milliseconds: 500), (_) => _pollStats());
+    _statsTimer = Timer.periodic(
+      const Duration(milliseconds: 500),
+      (_) => _pollStats(),
+    );
   }
 
   void _stopStreaming() {
@@ -193,8 +213,10 @@ class _TunerDemoState extends State<_TunerDemo> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const Divider(height: 32),
-        Text('Sintonia: ${(_frequencyHz / 1e6).toStringAsFixed(3)} MHz',
-            style: Theme.of(context).textTheme.titleMedium),
+        Text(
+          'Tuned to: ${(_frequencyHz / 1e6).toStringAsFixed(3)} MHz',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
         Slider(
           value: _frequencyHz.toDouble().clamp(87500000, 108000000),
           min: 87500000,
@@ -215,7 +237,7 @@ class _TunerDemoState extends State<_TunerDemo> {
         FilledButton.icon(
           onPressed: _isStreaming ? _stopStreaming : _startStreaming,
           icon: Icon(_isStreaming ? Icons.stop : Icons.play_arrow),
-          label: Text(_isStreaming ? 'Parar streaming' : 'Iniciar streaming'),
+          label: Text(_isStreaming ? 'Stop streaming' : 'Start streaming'),
         ),
         if (_lastError != null) ...[
           const SizedBox(height: 8),
@@ -223,10 +245,13 @@ class _TunerDemoState extends State<_TunerDemo> {
         ],
         if (_isStreaming) ...[
           const Divider(height: 32),
-          Text('IQ recebido: ${(_iqBytesReceived / 1e6).toStringAsFixed(2)} MB'),
-          Text('Nível RF: ${_rfLevelDbfs.toStringAsFixed(1)} dBFS'),
-          Text('Nível áudio: ${_audioLevelDbfs.toStringAsFixed(1)} dBFS'),
-          if (_mode == DemodMode.wfm) Text('Piloto estéreo: ${_stereoLocked ? "travado" : "sem lock"}'),
+          Text(
+            'IQ received: ${(_iqBytesReceived / 1e6).toStringAsFixed(2)} MB',
+          ),
+          Text('RF level: ${_rfLevelDbfs.toStringAsFixed(1)} dBFS'),
+          Text('Audio level: ${_audioLevelDbfs.toStringAsFixed(1)} dBFS'),
+          if (_mode == DemodMode.wfm)
+            Text('Stereo pilot: ${_stereoLocked ? "locked" : "unlocked"}'),
         ],
       ],
     );

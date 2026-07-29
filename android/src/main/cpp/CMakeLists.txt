@@ -9,8 +9,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 include(${CMAKE_CURRENT_SOURCE_DIR}/vendor/libusb.cmake)
 include(${CMAKE_CURRENT_SOURCE_DIR}/vendor/librtlsdr.cmake)
 
-# Oboe (AAR via Gradle, exposto ao CMake via Prefab — buildFeatures.prefab
-# em android/build.gradle.kts deste plugin). Usado só por audio/audio_sink_oboe.cpp.
+# Oboe (AAR via Gradle, exposed to CMake via Prefab — buildFeatures.prefab
+# in this plugin's android/build.gradle.kts). Used only by audio/audio_sink_oboe.cpp.
 find_package(oboe REQUIRED CONFIG)
 
 add_library(native_rtlsdr SHARED
@@ -29,7 +29,7 @@ add_library(native_rtlsdr SHARED
     audio/audio_sink_oboe.cpp
 )
 
-# Permite #include "dsp/ring_buffer.h" etc. a partir de rtlsdr_shim.c.
+# Allows #include "dsp/ring_buffer.h" etc. from rtlsdr_shim.c.
 target_include_directories(native_rtlsdr PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries(native_rtlsdr
@@ -38,27 +38,29 @@ target_link_libraries(native_rtlsdr
     PRIVATE log
 )
 
-# O snap do Flutter exporta CPLUS_INCLUDE_PATH/LIBRARY_PATH apontando pro
-# libstdc++ 9 empacotado nele (usado internamente pro build do target
-# desktop Linux) — o Gradle repassa o ambiente do processo cliente (`flutter
-# build`/`flutter run`, sempre poluído por causa do snap) pra CADA build,
-# mesmo com um daemon já rodando iniciado com ambiente limpo. Isso vaza pro
-# clang ao compilar audio_sink_oboe.cpp (que inclui <oboe/Oboe.h> e, por
-# tabela, <memory>/<cstring>/etc. da STL) — erros bizarros tipo
-# "redefinition of 'sigaction'" ou "memset não declarado" — e também afeta o
-# PRÓPRIO processo cmake durante o configure, quebrando a resolução do
-# find_package(oboe) via Prefab logo acima (por isso o build inicial precisa
-# rodar com ambiente limpo — ver tool/build_apk.sh e docs/native_build.md;
-# depois de cacheado em .cxx/, builds incrementais via `flutter run`/`flutter
-# build` funcionam normalmente mesmo com o ambiente poluído).
-# tool/cxx_env_wrapper.sh remove essas variáveis antes de cada invocação
-# real do compilador (tentar vencer isso só com ordem de -isystem virou
-# caça a header poluído sem fim; e um CMAKE_<LANG>_COMPILER_LAUNCHER global,
-# antes do project()/find_package(), também acaba interferindo na resolução
-# do find_package acima — por isso aplicado só neste target, depois).
-# Nota: este plugin usa android/src/main/cpp (sem o nível extra "app/" que o
-# app host tem em android/app/src/main/cpp) — só 4 "../" até a raiz do
-# pacote, não 5.
+# The Flutter snap exports CPLUS_INCLUDE_PATH/LIBRARY_PATH pointing at the
+# libstdc++ 9 bundled with it (used internally to build the Linux desktop
+# target) — Gradle forwards the client process environment (`flutter
+# build`/`flutter run`, always polluted because of the snap) to EVERY
+# build, even with a daemon already running that was started with a clean
+# environment. This leaks into clang when compiling audio_sink_oboe.cpp
+# (which includes <oboe/Oboe.h> and, transitively, <memory>/<cstring>/etc.
+# from the STL) — bizarre errors like "redefinition of 'sigaction'" or
+# "memset not declared" — and also affects the cmake process ITSELF during
+# configure, breaking find_package(oboe) resolution via Prefab just above
+# (which is why the initial build needs to run with a clean environment —
+# see tool/build_apk.sh and docs/native_build.md; once cached in .cxx/,
+# incremental builds via `flutter run`/`flutter build` work normally even
+# with the polluted environment).
+# tool/cxx_env_wrapper.sh strips these variables before every actual
+# compiler invocation (trying to beat this with -isystem ordering alone
+# turned into an endless chase of polluted headers; and a global
+# CMAKE_<LANG>_COMPILER_LAUNCHER, before project()/find_package(), also
+# ends up interfering with the find_package resolution above — hence it's
+# applied only to this target, afterward).
+# Note: this plugin uses android/src/main/cpp (without the extra "app/"
+# level that the host app has under android/app/src/main/cpp) — only 4
+# "../" up to the package root, not 5.
 set(RTLSDR_CXX_ENV_WRAPPER "${CMAKE_CURRENT_SOURCE_DIR}/../../../../tool/cxx_env_wrapper.sh")
 set_target_properties(native_rtlsdr PROPERTIES
     C_COMPILER_LAUNCHER "${RTLSDR_CXX_ENV_WRAPPER}"

@@ -1,6 +1,6 @@
-driver_rtlsdr — driver Android (Flutter plugin) para dongles RTL-SDR via
-USB-OTG: permissão/abertura USB, sintonia, streaming IQ, demodulação
-WFM/NFM/AM com estéreo e RDS, espectro, gravação e ganho.
+driver_rtlsdr — Android driver (Flutter plugin) for RTL-SDR dongles over
+USB-OTG: USB permission/open, tuning, IQ streaming, WFM/NFM/AM demodulation
+with stereo and RDS, spectrum, recording and gain.
 Copyright (C) 2026  devpy912@gmail.com
 
 This program is free software; you can redistribute it and/or modify
@@ -16,15 +16,14 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-Este driver vincula `librtlsdr` (GPLv2, "or (at your option) any later
-version" — ver android/src/main/cpp/vendor/librtlsdr/src/librtlsdr.c), o que
-exige que qualquer app que o use seja distribuído sob GPL — daí a escolha
-de GPLv2-ou-posterior aqui, cobrindo tanto GPLv2 quanto GPLv3. `libusb`
-(vendorizado em android/src/main/cpp/vendor/libusb/) é LGPL-2.1, compatível.
-KissFFT (vendor/kissfft/) é BSD-3-Clause. Oboe (dependência via Gradle/
-Prefab, não vendorizada neste repo) é Apache-2.0. Todas compatíveis com a
-distribuição deste driver — e de qualquer app que o consuma — sob esta
-licença.
+This driver links `librtlsdr` (GPLv2, "or (at your option) any later
+version" — see android/src/main/cpp/vendor/librtlsdr/src/librtlsdr.c), which
+requires that any app using it be distributed under the GPL — hence the
+choice of GPLv2-or-later here, covering both GPLv2 and GPLv3. `libusb`
+(vendored under android/src/main/cpp/vendor/libusb/) is LGPL-2.1, compatible.
+KissFFT (vendor/kissfft/) is BSD-3-Clause. Oboe (a Gradle/Prefab dependency,
+not vendored in this repo) is Apache-2.0. All compatible with distributing
+this driver — and any app that consumes it — under this license.
 
 ---
 

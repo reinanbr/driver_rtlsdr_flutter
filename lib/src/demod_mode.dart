@@ -1,8 +1,8 @@
-/// Espelha `demod_mode_t` de rtlsdr_shim.h — os valores numéricos importam
-/// (passados direto pra `shim_set_demod_mode` via FFI).
+/// Mirrors `demod_mode_t` from rtlsdr_shim.h — the numeric values matter
+/// (passed directly to `shim_set_demod_mode` via FFI).
 enum DemodMode {
-  wfm(0, 'FM comercial', 'WFM'),
-  nfm(1, 'FM banda estreita', 'NFM'),
+  wfm(0, 'Commercial FM', 'WFM'),
+  nfm(1, 'Narrowband FM', 'NFM'),
   am(2, 'AM', 'AM');
 
   const DemodMode(this.nativeValue, this.label, this.shortLabel);
@@ -12,9 +12,12 @@ enum DemodMode {
   final String shortLabel;
 
   static DemodMode fromNativeValue(int value) {
-    return DemodMode.values.firstWhere((m) => m.nativeValue == value, orElse: () => DemodMode.wfm);
+    return DemodMode.values.firstWhere(
+      (m) => m.nativeValue == value,
+      orElse: () => DemodMode.wfm,
+    );
   }
 
-  /// Squelch só faz sentido pra NFM/AM — rádio comercial (WFM) não usa.
+  /// Squelch only makes sense for NFM/AM — commercial broadcast (WFM) doesn't use it.
   bool get supportsSquelch => this != DemodMode.wfm;
 }

@@ -4,7 +4,7 @@
 
 int ring_buffer_init(ring_buffer_t *rb, size_t capacity_pow2) {
     if (capacity_pow2 == 0 || (capacity_pow2 & (capacity_pow2 - 1)) != 0) {
-        return -1; /* precisa ser potência de 2 para a máscara de índice funcionar */
+        return -1; /* must be a power of 2 for the index mask to work */
     }
     rb->buffer = (uint8_t *)malloc(capacity_pow2);
     if (!rb->buffer) {

@@ -4,13 +4,17 @@ import 'package:flutter/services.dart';
 
 import 'usb_state.dart';
 
-/// Ponte para o lado Kotlin: pede/lê o estado de permissão USB do dongle
-/// RTL-SDR via [MethodChannel] e escuta eventos de attach/detach/permissão
-/// via [EventChannel]. O Kotlin (`DriverRtlsdrPlugin`/`UsbAttachReceiver`) é
-/// a única parte do driver que pode falar com `android.hardware.usb.UsbManager`.
+/// Bridge to the Kotlin side: requests/reads the RTL-SDR dongle's USB
+/// permission state via [MethodChannel] and listens for attach/detach/
+/// permission events via [EventChannel]. Kotlin
+/// (`DriverRtlsdrPlugin`/`UsbAttachReceiver`) is the only part of the
+/// driver that can talk to `android.hardware.usb.UsbManager`.
 class UsbChannel {
   UsbChannel({required this.state}) {
-    _eventSub = _events.receiveBroadcastStream().listen(_onEvent, onError: _onEventError);
+    _eventSub = _events.receiveBroadcastStream().listen(
+      _onEvent,
+      onError: _onEventError,
+    );
   }
 
   static const MethodChannel _methods = MethodChannel('driver_rtlsdr');
@@ -19,16 +23,18 @@ class UsbChannel {
   final UsbState state;
   StreamSubscription<Object?>? _eventSub;
 
-  /// Escaneia os dispositivos USB já conectados (útil ao abrir o app com o
-  /// dongle já plugado, quando não há um intent de ATTACHED para pegar).
+  /// Scans already-connected USB devices (useful when opening the app with
+  /// the dongle already plugged in, when there's no ATTACHED intent to catch).
   Future<void> refreshConnectedDevices() async {
     try {
-      final result = await _methods.invokeMethod<Map<Object?, Object?>>('getConnectedDevice');
+      final result = await _methods.invokeMethod<Map<Object?, Object?>>(
+        'getConnectedDevice',
+      );
       if (result != null) {
         state.deviceAttached(UsbDeviceInfo.fromMap(result));
       }
     } on PlatformException catch (e) {
-      state.setError('Falha ao consultar dispositivos USB: ${e.message}');
+      state.setError('Failed to query USB devices: ${e.message}');
     }
   }
 
@@ -37,7 +43,7 @@ class UsbChannel {
       state.permissionRequested();
       await _methods.invokeMethod<void>('requestPermission');
     } on PlatformException catch (e) {
-      state.setError('Falha ao solicitar permissão: ${e.message}');
+      state.setError('Failed to request permission: ${e.message}');
     }
   }
 
@@ -47,22 +53,28 @@ class UsbChannel {
     final type = map['type'] as String?;
     switch (type) {
       case 'attached':
-        state.deviceAttached(UsbDeviceInfo.fromMap(map['device']! as Map<Object?, Object?>));
+        state.deviceAttached(
+          UsbDeviceInfo.fromMap(map['device']! as Map<Object?, Object?>),
+        );
       case 'detached':
         state.deviceDetached();
       case 'permissionGranted':
-        state.permissionGranted(UsbDeviceInfo.fromMap(map['device']! as Map<Object?, Object?>));
+        state.permissionGranted(
+          UsbDeviceInfo.fromMap(map['device']! as Map<Object?, Object?>),
+        );
       case 'permissionDenied':
         state.permissionDenied();
       case 'deviceReady':
-        state.deviceReady(UsbDeviceInfo.fromMap(map['device']! as Map<Object?, Object?>));
+        state.deviceReady(
+          UsbDeviceInfo.fromMap(map['device']! as Map<Object?, Object?>),
+        );
       case 'error':
-        state.setError(map['message'] as String? ?? 'Erro desconhecido');
+        state.setError(map['message'] as String? ?? 'Unknown error');
     }
   }
 
   void _onEventError(Object error) {
-    state.setError('Erro no canal de eventos USB: $error');
+    state.setError('Error on the USB event channel: $error');
   }
 
   void dispose() {

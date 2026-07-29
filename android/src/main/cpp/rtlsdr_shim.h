@@ -4,15 +4,15 @@
 #include <stdint.h>
 
 /*
- * API pública da lib nativa, chamada tanto pelo Dart FFI (dlsym direto,
- * por isso extern "C" sem name mangling) quanto por jni_bridge.cpp.
+ * Public API of the native lib, called both by Dart FFI (direct dlsym,
+ * hence extern "C" with no name mangling) and by jni_bridge.cpp.
  *
- * shim_open_with_fd() só deve ser chamada a partir do JNI (jni_bridge.cpp),
- * pois só o lado Kotlin (UsbManager/UsbDeviceConnection) consegue obter um
- * file descriptor USB válido com permissão concedida.
+ * shim_open_with_fd() must only be called from JNI (jni_bridge.cpp), since
+ * only the Kotlin side (UsbManager/UsbDeviceConnection) can obtain a valid
+ * USB file descriptor with permission granted.
  *
- * Milestone 4: modos de demodulação (WFM/NFM/AM), ganho e squelch. Espectro
- * chega no Milestone 5.
+ * Milestone 4: demodulation modes (WFM/NFM/AM), gain and squelch. Spectrum
+ * arrives in Milestone 5.
  */
 
 #ifdef __cplusplus
@@ -29,8 +29,8 @@ typedef enum {
     SHIM_ERR_ALREADY_STREAMING  = -6,
     SHIM_ERR_NOT_STREAMING      = -7,
     SHIM_ERR_THREAD_FAILED      = -8,
-    SHIM_ERR_RECORDING_ACTIVE   = -9,  /* já gravando */
-    SHIM_ERR_NOT_RECORDING      = -10, /* shim_stop_recording sem gravação ativa */
+    SHIM_ERR_RECORDING_ACTIVE   = -9,  /* already recording */
+    SHIM_ERR_NOT_RECORDING      = -10, /* shim_stop_recording with no active recording */
     SHIM_ERR_RECORDING_OPEN_FAILED = -11,
 } shim_status_t;
 
@@ -40,57 +40,58 @@ typedef enum {
     DEMOD_AM  = 2,
 } demod_mode_t;
 
-/* ---- Ciclo de vida ------------------------------------------------- */
+/* ---- Lifecycle ------------------------------------------------------- */
 
 int32_t shim_open_with_fd(int32_t usb_fd, int32_t vendor_id, int32_t product_id);
 int32_t shim_close(void);
 int32_t shim_is_open(void);
 
-/* ---- Sintonia -------------------------------------------------------- */
+/* ---- Tuning ------------------------------------------------------------ */
 
 int32_t shim_set_frequency_hz(uint32_t freq_hz);
 uint32_t shim_get_frequency_hz(void);
 int32_t shim_set_sample_rate_hz(uint32_t rate_hz);
 uint32_t shim_get_sample_rate_hz(void);
 
-/* ---- Ganho -------------------------------------------------------------
- * Valores de ganho em décimos de dB (convenção da própria librtlsdr), ex.
+/* ---- Gain ----------------------------------------------------------------
+ * Gain values in tenths of a dB (librtlsdr's own convention), e.g.
  * 40 = 4.0 dB. */
 
-int32_t shim_set_gain_mode(int32_t auto_gain); /* 1 = AGC automático, 0 = manual */
-/* Define o ganho manual (também muda pra modo manual automaticamente). */
+int32_t shim_set_gain_mode(int32_t auto_gain); /* 1 = automatic AGC, 0 = manual */
+/* Sets the manual gain (also automatically switches to manual mode). */
 int32_t shim_set_gain_tenth_db(int32_t gain_tenths_db);
-/* Preenche out_tenths_db (até max_count) com os ganhos suportados pelo
- * tuner; retorna quantos foram escritos (ou < 0 em erro). */
+/* Fills out_tenths_db (up to max_count) with the gains supported by the
+ * tuner; returns how many were written (or < 0 on error). */
 int32_t shim_get_gain_list(int32_t *out_tenths_db, int32_t max_count);
 
-/* ---- Demodulação / squelch --------------------------------------------
- * Mudar o modo só tem efeito no próximo shim_start_streaming() (a thread
- * de DSP lê o modo uma vez ao iniciar) — trocar de modo com streaming
- * ativo exige parar e iniciar de novo. Squelch só se aplica a NFM/AM;
- * WFM ignora (rádio comercial não teria squelch, é sempre "aberto"). */
+/* ---- Demodulation / squelch --------------------------------------------
+ * Changing the mode only takes effect on the next shim_start_streaming()
+ * (the DSP thread reads the mode once at startup) — switching modes while
+ * streaming is active requires stopping and starting again. Squelch only
+ * applies to NFM/AM; WFM ignores it (commercial broadcast radio wouldn't
+ * have squelch, it's always "open"). */
 
 int32_t shim_set_demod_mode(int32_t mode /* demod_mode_t */);
 int32_t shim_get_demod_mode(void);
 int32_t shim_set_squelch_threshold_db(float threshold_db);
 
-/* ---- Estéreo (WFM) -----------------------------------------------------
- * Diferente de demod_mode, aplicado ao vivo (a thread de DSP lê o atomic a
- * cada bloco) — não precisa parar/reiniciar o streaming pra trocar. Não
- * força stream mono no hardware/Oboe quando desligado: só controla o blend
- * L/R (ver rtlsdr_shim.c), o stream de saída continua estéreo em WFM
- * (canais idênticos = mono percebido) pra não reabrir o Oboe a cada toggle.
- * `stereo_locked` em shim_stats_t reflete se o piloto de 19kHz está
- * detectado no sinal, independente deste toggle. */
+/* ---- Stereo (WFM) --------------------------------------------------------
+ * Unlike demod_mode, applied live (the DSP thread reads the atomic every
+ * block) — no need to stop/restart streaming to switch. Doesn't force a
+ * mono stream on the hardware/Oboe when off: it only controls the L/R
+ * blend (see rtlsdr_shim.c), the output stream stays stereo in WFM
+ * (identical channels = perceived mono) to avoid reopening Oboe on every
+ * toggle. `stereo_locked` in shim_stats_t reflects whether the 19kHz
+ * pilot is detected in the signal, independent of this toggle. */
 int32_t shim_set_stereo_enabled(int32_t enabled);
 
-/* ---- RDS (WFM) -----------------------------------------------------------
- * Só decodifica com o piloto estéreo travado (RDS é coerente com o piloto
- * por definição do padrão — ver dsp/rds_decoder.h). Aplicado ao vivo, como
- * o toggle de estéreo. `sync_locked` aqui é o sincronismo de BLOCO RDS
- * (26 bits, CRC/offset word) — independente de `stereo_locked` em
- * shim_stats_t (piloto de 19kHz), embora dependa dele pra sequer começar a
- * tentar. */
+/* ---- RDS (WFM) -------------------------------------------------------------
+ * Only decodes with the stereo pilot locked (RDS is coherent with the
+ * pilot by definition of the standard — see dsp/rds_decoder.h). Applied
+ * live, like the stereo toggle. `sync_locked` here is the RDS BLOCK sync
+ * (26 bits, CRC/offset word) — independent of `stereo_locked` in
+ * shim_stats_t (19kHz pilot), though it depends on it to even start
+ * trying. */
 int32_t shim_set_rds_enabled(int32_t enabled);
 
 typedef struct {
@@ -98,10 +99,10 @@ typedef struct {
     uint8_t  pty;
     int32_t  tp;
     int32_t  ta;
-    char     ps[9];         /* 8 chars + NUL, preenchido progressivamente */
-    char     radiotext[65]; /* 64 chars + NUL, preenchido progressivamente */
-    uint32_t generation;    /* incrementa sempre que ps/radiotext mudam de fato —
-                              * Dart pode usar isso pra evitar diffar strings */
+    char     ps[9];         /* 8 chars + NUL, filled in progressively */
+    char     radiotext[65]; /* 64 chars + NUL, filled in progressively */
+    uint32_t generation;    /* incremented whenever ps/radiotext actually change —
+                              * Dart can use this to avoid diffing strings */
     uint32_t valid_group_count;
     int32_t  sync_locked;
 } shim_rds_info_t;
@@ -114,7 +115,7 @@ int32_t shim_start_streaming(void);
 int32_t shim_stop_streaming(void);
 int32_t shim_is_streaming(void);
 
-/* ---- Telemetria (Dart faz polling periódico) -------------------------- */
+/* ---- Telemetry (Dart polls periodically) ------------------------------- */
 
 typedef struct {
     uint64_t iq_bytes_received;
@@ -122,32 +123,32 @@ typedef struct {
     float    rf_level_dbfs;
     float    audio_level_dbfs;
     int32_t  squelch_open;
-    uint64_t recording_bytes_written; /* 0 se não estiver gravando */
-    int32_t  stereo_locked;           /* piloto de 19kHz detectado (só significativo em WFM) */
-    float    pilot_level;             /* amplitude do piloto (unidade arbitrária, só útil relativa) */
+    uint64_t recording_bytes_written; /* 0 if not recording */
+    int32_t  stereo_locked;           /* 19kHz pilot detected (only meaningful in WFM) */
+    float    pilot_level;             /* pilot amplitude (arbitrary unit, only useful relatively) */
 } shim_stats_t;
 
 int32_t shim_get_stats(shim_stats_t *out);
 
-/* ---- Gravação -----------------------------------------------------------
- * Grava o mesmo PCM que já vai pro alto-falante (tap logo antes do
- * ring_buffer_write do pcm_ring, dentro da thread de DSP) direto num WAV
- * em `file_path` (caminho completo, já deve existir o diretório-pai —
- * responsabilidade do chamador Dart, que tem acesso a path_provider).
- * Exige streaming ativo (shim_start_streaming já chamado). Parar o
- * streaming finaliza automaticamente uma gravação em andamento (fecha o
- * WAV com os tamanhos corrigidos) — não fica um arquivo com header zerado
- * pendurado. */
+/* ---- Recording -------------------------------------------------------------
+ * Records the same PCM that already goes to the speaker (tapped right
+ * before pcm_ring's ring_buffer_write, inside the DSP thread) directly to
+ * a WAV file at `file_path` (full path, the parent directory must already
+ * exist — the Dart caller's responsibility, which has access to
+ * path_provider). Requires active streaming (shim_start_streaming already
+ * called). Stopping streaming automatically finalizes an in-progress
+ * recording (closes the WAV with corrected sizes) — no file is left
+ * behind with a zeroed header. */
 int32_t shim_start_recording(const char *file_path);
 int32_t shim_stop_recording(void);
 int32_t shim_is_recording(void);
 
-/* ---- Espectro (Dart faz polling em ~20-30fps pro waterfall) -----------
- * Snapshot da banda inteira capturada (não o canal estreito do
- * demodulador), calculado sobre IQ bruto pré-decimação. out_mag_db[0] =
- * borda inferior da banda, out_mag_db[num_bins-1] = borda superior — pronto
- * pra desenhar direto. Retorna num_bins em sucesso, 0 se não estiver
- * streaming (sem novo dado ainda). num_bins deve ser <= 1024. */
+/* ---- Spectrum (Dart polls at ~20-30fps for the waterfall) --------------
+ * Snapshot of the whole captured band (not the demodulator's narrow
+ * channel), computed over raw pre-decimation IQ. out_mag_db[0] = lower
+ * edge of the band, out_mag_db[num_bins-1] = upper edge — ready to draw
+ * directly. Returns num_bins on success, 0 if not streaming (no new data
+ * yet). num_bins must be <= 1024. */
 int32_t shim_get_spectrum_db(float *out_mag_db, int32_t num_bins);
 
 #ifdef __cplusplus

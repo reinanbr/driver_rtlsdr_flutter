@@ -10,14 +10,15 @@ extern "C" {
 #endif
 
 /*
- * Ring buffer lock-free single-produtor/single-consumidor. `capacity` deve
- * ser potência de 2 (indexação via máscara em vez de módulo). Usa contadores
- * head/tail monotonicamente crescentes (não módulo capacity) — o wraparound
- * de size_t é seguro aqui porque só as *diferenças* entre eles importam.
+ * Lock-free single-producer/single-consumer ring buffer. `capacity` must
+ * be a power of 2 (indexing via mask instead of modulo). Uses
+ * monotonically increasing head/tail counters (not modulo capacity) —
+ * size_t wraparound is safe here because only the *differences* between
+ * them matter.
  *
- * Uso pretendido: 1 produtor (callback USB) e 1 consumidor (thread de
- * DSP/drain) por instância. Não é seguro com múltiplos produtores ou
- * múltiplos consumidores simultâneos.
+ * Intended use: 1 producer (USB callback) and 1 consumer (DSP/drain
+ * thread) per instance. Not safe with multiple simultaneous producers or
+ * consumers.
  */
 typedef struct {
     uint8_t *buffer;
@@ -30,11 +31,11 @@ int ring_buffer_init(ring_buffer_t *rb, size_t capacity_pow2);
 void ring_buffer_destroy(ring_buffer_t *rb);
 void ring_buffer_reset(ring_buffer_t *rb);
 
-/* Escreve até len bytes; retorna quantos bytes couberam (pode ser < len se
- * o buffer estiver cheio — chamador deve tratar isso como overflow). */
+/* Writes up to len bytes; returns how many bytes fit (may be < len if the
+ * buffer is full — caller should treat that as overflow). */
 size_t ring_buffer_write(ring_buffer_t *rb, const uint8_t *data, size_t len);
 
-/* Lê até len bytes; retorna quantos bytes foram lidos (0 se vazio). */
+/* Reads up to len bytes; returns how many bytes were read (0 if empty). */
 size_t ring_buffer_read(ring_buffer_t *rb, uint8_t *out, size_t len);
 
 size_t ring_buffer_available_read(const ring_buffer_t *rb);

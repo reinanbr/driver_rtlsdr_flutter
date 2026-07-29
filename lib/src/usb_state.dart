@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-/// Status da conexão com o dongle RTL-SDR, espelhando o ciclo de vida do
-/// fluxo de permissão USB do Android (`UsbManager`).
+/// Connection status with the RTL-SDR dongle, mirroring the lifecycle of
+/// Android's USB permission flow (`UsbManager`).
 enum UsbConnectionStatus {
   noDevice,
   attached,
@@ -41,9 +41,9 @@ class UsbDeviceInfo {
   String get productIdHex => '0x${productId.toRadixString(16).padLeft(4, '0')}';
 }
 
-/// Estado observável da conexão USB com o dongle RTL-SDR.
+/// Observable state of the USB connection with the RTL-SDR dongle.
 ///
-/// Alimentado pelos eventos vindos do lado Kotlin (attach/detach/permissão)
+/// Fed by events coming from the Kotlin side (attach/detach/permission)
 /// via [UsbChannel].
 class UsbState extends ChangeNotifier {
   UsbConnectionStatus _status = UsbConnectionStatus.noDevice;
@@ -54,7 +54,8 @@ class UsbState extends ChangeNotifier {
   UsbDeviceInfo? get device => _device;
   String? get lastError => _lastError;
 
-  bool get isPermissionGranted => _status == UsbConnectionStatus.permissionGranted;
+  bool get isPermissionGranted =>
+      _status == UsbConnectionStatus.permissionGranted;
   bool get isDeviceReady => _status == UsbConnectionStatus.deviceReady;
 
   void deviceAttached(UsbDeviceInfo device) {

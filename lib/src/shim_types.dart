@@ -1,6 +1,6 @@
 import 'dart:ffi' as ffi;
 
-/// Espelha `shim_stats_t` de rtlsdr_shim.h (layout precisa bater 1:1 com o C).
+/// Mirrors `shim_stats_t` from rtlsdr_shim.h (layout must match the C side 1:1).
 final class ShimStats extends ffi.Struct {
   @ffi.Uint64()
   external int iqBytesReceived;
@@ -27,9 +27,9 @@ final class ShimStats extends ffi.Struct {
   external double pilotLevel;
 }
 
-/// Espelha `shim_rds_info_t` de rtlsdr_shim.h (layout precisa bater 1:1 com
-/// o C — mesma ordem/tipos de campo, inclusive o padding implícito de
-/// alinhamento, que o Dart FFI resolve sozinho contanto que a ordem bata).
+/// Mirrors `shim_rds_info_t` from rtlsdr_shim.h (layout must match the C
+/// side 1:1 — same field order/types, including implicit alignment
+/// padding, which Dart FFI resolves on its own as long as the order matches).
 final class ShimRdsInfo extends ffi.Struct {
   @ffi.Uint16()
   external int piCode;

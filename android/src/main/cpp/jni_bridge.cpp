@@ -3,27 +3,27 @@
 #include "rtlsdr_shim.h"
 
 /*
- * Ponte JNI mínima: existe só porque a permissão/abertura USB só pode ser
- * feita a partir do Kotlin (android.hardware.usb.UsbManager). Tudo o mais
- * (sintonia, streaming, stats) é chamado pelo Dart via FFI direto nas
- * funções shim_* — ver rtlsdr_shim.h.
+ * Minimal JNI bridge: it exists only because USB permission/opening can
+ * only be done from Kotlin (android.hardware.usb.UsbManager). Everything
+ * else (tuning, streaming, stats) is called by Dart via direct FFI into
+ * the shim_* functions — see rtlsdr_shim.h.
  *
- * Usa RegisterNatives em JNI_OnLoad em vez de depender do name-mangling
- * estático (Java_com_..._DriverRtlsdrPlugin_nativeXxx), que fica frágil com
- * o underscore no nome do pacote "driver_rtlsdr" (underscore vira "_1" no
- * mangling — fácil de errar na mão).
+ * Uses RegisterNatives in JNI_OnLoad instead of relying on static
+ * name-mangling (Java_com_..._DriverRtlsdrPlugin_nativeXxx), which is
+ * fragile with the underscore in the package name "driver_rtlsdr"
+ * (underscore becomes "_1" in mangling — easy to get wrong by hand).
  *
- * As 3 funções nativas (nativeOpenWithFd/nativeClose/nativeIsOpen) são
- * declaradas como `external fun` em DriverRtlsdrPlugin.kt — o nome da
- * classe abaixo (FindClass) tem que bater exatamente com isso. Divergir
- * aqui não dá erro de compilação (é uma string, não checada em tempo de
- * build) — dá um crash nativo em runtime assim que o app carrega a lib
- * (FindClass lança ClassNotFoundException; qualquer chamada JNI seguinte
- * sem limpar essa exceção pendente vira "JNI DETECTED ERROR" fatal em modo
- * JNI estrito). Foi exatamente esse bug que apareceu ao extrair este
- * plugin do app original (lá a classe se chamava UsbBridge) — coberto
- * agora por env->ExceptionClear() defensivo abaixo, mas o nome ainda
- * precisa bater.
+ * The 3 native functions (nativeOpenWithFd/nativeClose/nativeIsOpen) are
+ * declared as `external fun` in DriverRtlsdrPlugin.kt — the class name
+ * below (FindClass) has to match that exactly. A mismatch here doesn't
+ * cause a compile error (it's a string, not checked at build time) — it
+ * causes a native crash at runtime as soon as the app loads the lib
+ * (FindClass throws a ClassNotFoundException; any subsequent JNI call
+ * without clearing that pending exception becomes a fatal "JNI DETECTED
+ * ERROR" in strict JNI mode). This is exactly the bug that showed up when
+ * extracting this plugin from the original app (there the class was
+ * called UsbBridge) — now covered by the defensive env->ExceptionClear()
+ * below, but the name still has to match.
  */
 
 namespace {
@@ -63,13 +63,13 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
 
     jclass clazz = env->FindClass("com/rtlsdrmobile/driver_rtlsdr/DriverRtlsdrPlugin");
     if (clazz == nullptr) {
-        // FindClass falhando deixa uma ClassNotFoundException PENDENTE no
-        // env — qualquer chamada JNI subsequente sem limpar isso primeiro é
-        // fatal em modo JNI estrito ("JNI DETECTED ERROR ... NewGlobalRef
-        // called with pending exception"), mesmo que o chamador (a JVM, ao
-        // processar o retorno de JNI_OnLoad) não tenha nada a ver com o
-        // FindClass em si. Limpa aqui pra falhar de forma previsível
-        // (JNI_ERR, sem crash) em vez de propagar a exceção pendente.
+        // FindClass failing leaves a PENDING ClassNotFoundException on the
+        // env — any subsequent JNI call without clearing it first is fatal
+        // in strict JNI mode ("JNI DETECTED ERROR ... NewGlobalRef called
+        // with pending exception"), even though the caller (the JVM,
+        // processing the return of JNI_OnLoad) has nothing to do with
+        // FindClass itself. Clear it here to fail predictably (JNI_ERR, no
+        // crash) instead of propagating the pending exception.
         env->ExceptionClear();
         return JNI_ERR;
     }

@@ -1,21 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Lista de VID/PID de dongles RTL-SDR conhecidos.
+  List of VID/PID for known RTL-SDR dongles.
 
-  Os atributos vendor-id/product-id do Android são DECIMAIS, não hex — daí o
-  comentário hex ao lado de cada entrada. Esse arquivo só controla o
-  auto-launch do app quando o dongle é plugado (via USB_DEVICE_ATTACHED); a
-  detecção manual (UsbManager.getDeviceList() em UsbBridge.kt) enxerga
-  qualquer dispositivo USB conectado independente desta lista.
+  Android's vendor-id/product-id attributes are DECIMAL, not hex — hence the
+  hex comment next to each entry. This file only controls the app's
+  auto-launch when the dongle is plugged in (via USB_DEVICE_ATTACHED); manual
+  detection (UsbManager.getDeviceList() in UsbBridge.kt) sees any connected
+  USB device regardless of this list.
 
-  Esta é uma lista inicial com os IDs mais comuns (chip Realtek RTL2832U);
-  a maioria dos dongles rebrandeados (NooElec, RTL-SDR Blog, etc.) mantém o
-  VID/PID padrão da Realtek. CONFIRMAR e ajustar com o VID/PID real do dongle
-  do usuário assim que testado (Milestone 1) via a tela de debug do app ou
+  This is an initial list with the most common IDs (Realtek RTL2832U chip);
+  most rebranded dongles (NooElec, RTL-SDR Blog, etc.) keep Realtek's
+  default VID/PID. CONFIRM and adjust with the user's dongle's actual
+  VID/PID once tested (Milestone 1) via the app's debug screen or
   `adb shell dumpsys usb`.
 -->
 <resources>
     <usb-device vendor-id="3034" product-id="10290" /> <!-- 0x0bda:0x2832 - RTL2832U (bare) -->
-    <usb-device vendor-id="3034" product-id="10296" /> <!-- 0x0bda:0x2838 - RTL2832U + R820T (mais comum) -->
-    <usb-device vendor-id="3034" product-id="10305" /> <!-- 0x0bda:0x2841 - rebrand comum -->
+    <usb-device vendor-id="3034" product-id="10296" /> <!-- 0x0bda:0x2838 - RTL2832U + R820T (most common) -->
+    <usb-device vendor-id="3034" product-id="10305" /> <!-- 0x0bda:0x2841 - common rebrand -->
 </resources>

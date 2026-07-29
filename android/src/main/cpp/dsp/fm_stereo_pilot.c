@@ -5,24 +5,25 @@
 #define STEREO_PI 3.14159265358979323846f
 #define STEREO_PILOT_HZ 19000.0f
 
-/* Banda passante e amortecimento alvo do loop PI — ponto de partida não
- * validado em hardware real, ver AVISO em fm_stereo_pilot.h. */
+/* Target loop bandwidth and damping of the PI loop — starting point, not
+ * validated on real hardware, see WARNING in fm_stereo_pilot.h. */
 #define PLL_LOOP_BW_HZ 8.0f
 #define PLL_ZETA 0.707f
 
-/* Constante de tempo do LPF do detector de amplitude do piloto. */
+/* Time constant of the pilot amplitude detector's LPF. */
 #define LOCK_LPF_TAU_S 0.030f
 
-/* Limiares de amplitude pra decisão de lock, com histerese (like o squelch
- * existente em rtlsdr_shim.c) — travar exige amplitude mais alta que
- * destravar, evita flapping na borda. Valores não calibrados contra sinal
- * real, ver AVISO no header. */
+/* Amplitude thresholds for the lock decision, with hysteresis (like the
+ * existing squelch in rtlsdr_shim.c) — locking requires a higher amplitude
+ * than unlocking, avoiding flapping at the edge. Values not calibrated
+ * against a real signal, see WARNING in the header. */
 #define PILOT_LOCK_AMPLITUDE 0.010f
 #define PILOT_UNLOCK_AMPLITUDE 0.006f
 
-/* Debounce em número de chamadas a fm_stereo_pilot_process (cada chamada
- * cobre um bloco da thread de DSP, tipicamente poucos ms) — exige N blocos
- * consecutivos no lado oposto do limiar antes de trocar de estado. */
+/* Debounce in number of calls to fm_stereo_pilot_process (each call covers
+ * one block from the DSP thread, typically a few ms) — requires N
+ * consecutive blocks on the opposite side of the threshold before
+ * switching state. */
 #define PILOT_LOCK_DEBOUNCE_BLOCKS 10
 
 void fm_stereo_pilot_init(fm_stereo_pilot_t *p, float sample_rate_hz) {
@@ -58,8 +59,8 @@ void fm_stereo_pilot_process(fm_stereo_pilot_t *p, const float *mpx, size_t coun
         float nco_sin = sinf(theta);
         float nco_cos = cosf(theta);
 
-        /* Detector de fase do PLL: erro contra o piloto de 19kHz presente
-         * no MPX cru. */
+        /* PLL phase detector: error against the 19kHz pilot present in
+         * the raw MPX. */
         float error = mpx[n] * nco_sin;
         freq += beta * error;
         theta += freq + alpha * error;
@@ -72,7 +73,7 @@ void fm_stereo_pilot_process(fm_stereo_pilot_t *p, const float *mpx, size_t coun
         lock_lpf_i += lock_alpha * (mpx[n] * nco_cos - lock_lpf_i);
         lock_lpf_q += lock_alpha * (mpx[n] * nco_sin - lock_lpf_q);
 
-        /* Harmônicos via identidade de ângulo duplo/soma — ver header. */
+        /* Harmonics via double-angle/sum identities — see header. */
         float s2 = 2.0f * nco_sin * nco_cos;
         float c2 = nco_cos * nco_cos - nco_sin * nco_sin;
         if (cos2wt) cos2wt[n] = c2;

@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Faz o primeiro build (ou um build pós-`flutter clean`) do APK do app de
-# exemplo com ambiente limpo — mesmo motivo/mecanismo do
-# tool/build_apk.sh do app rtl-sdr mobile (irmão deste pacote): o snap do
-# Flutter polui CPLUS_INCLUDE_PATH/LIBRARY_PATH, o que quebra o configure
-# nativo (CMake/find_package(oboe) via Prefab) na primeira vez. Depois de
-# cacheado em android/app/.cxx/, builds incrementais via `flutter run`/
-# `flutter build apk` funcionam normalmente mesmo com o ambiente poluído.
+# Does the first build (or a build right after `flutter clean`) of the
+# example app's APK with a clean environment — same reason/mechanism as
+# tool/build_apk.sh in the rtl-sdr mobile app (sibling of this package):
+# the Flutter snap pollutes CPLUS_INCLUDE_PATH/LIBRARY_PATH, which breaks
+# the native configure step (CMake/find_package(oboe) via Prefab) the
+# first time. Once cached in android/app/.cxx/, incremental builds via
+# `flutter run`/`flutter build apk` work normally even with the polluted
+# environment.
 #
-# Uso: tool/build_apk.sh [tarefa do Gradle, default assembleDebug]
+# Usage: tool/build_apk.sh [Gradle task, default assembleDebug]
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

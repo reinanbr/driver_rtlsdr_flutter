@@ -7,9 +7,9 @@ plugins {
 android {
     namespace = "com.rtlsdrmobile.driver_rtlsdr_example"
     compileSdk = flutter.compileSdkVersion
-    // Pinada — mesma versão que o módulo do plugin (android/build.gradle.kts)
-    // usa; deixar cada módulo resolver a sua própria via flutter.ndkVersion
-    // pode divergir e confundir o build nativo.
+    // Pinned — same version the plugin module (android/build.gradle.kts)
+    // uses; letting each module resolve its own via flutter.ndkVersion
+    // can diverge and confuse the native build.
     ndkVersion = "28.2.13676358"
 
     compileOptions {
@@ -22,8 +22,8 @@ android {
         applicationId = "com.rtlsdrmobile.driver_rtlsdr_example"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // 26: exigido pelo plugin driver_rtlsdr (caminho de baixa latência
-        // do Oboe/AAudio).
+        // 26: required by the driver_rtlsdr plugin (Oboe/AAudio low-latency
+        // path).
         minSdk = maxOf(flutter.minSdkVersion, 26)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

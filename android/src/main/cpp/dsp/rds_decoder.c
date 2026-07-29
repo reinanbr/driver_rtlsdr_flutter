@@ -8,30 +8,30 @@
 
 #define RDS_PI 3.14159265358979323846f
 
-/* Front-end: downconversão + decimação do MPX (256kHz) pro baseband RDS.
- * decim=16 a partir de 256000Hz dá 16000Hz exatos (~6.7 amostras/chip a
- * 2375Hz de taxa de chip) — oversampling confortável pro Gardner com
- * interpolação linear. */
+/* Front-end: downconversion + decimation of the MPX (256kHz) to the RDS
+ * baseband. decim=16 from 256000Hz gives exactly 16000Hz (~6.7 samples/chip
+ * at the 2375Hz chip rate) — comfortable oversampling for Gardner with
+ * linear interpolation. */
 #define RDS_MPX_DECIM 16
-#define RDS_FIR_NUM_TAPS 129 /* mais taps que os outros estágios — corte relativo bem mais estreito, ver AVISO no .h */
-#define RDS_LOWPASS_CUTOFF_NORMALIZED 0.025f /* ~3.2kHz a 256kHz de entrada, aperta a banda de ~2.4kHz do RDS */
+#define RDS_FIR_NUM_TAPS 129 /* more taps than the other stages — much narrower relative cutoff, see WARNING in the .h */
+#define RDS_LOWPASS_CUTOFF_NORMALIZED 0.025f /* ~3.2kHz at 256kHz input, tightens RDS's ~2.4kHz band */
 
-#define RDS_CHIP_RATE_HZ 2375.0f /* = 19000/8 = 2x a taxa de bit (1187.5) */
+#define RDS_CHIP_RATE_HZ 2375.0f /* = 19000/8 = 2x the 1187.5 bit rate */
 
-/* Cobre o WORK_CAPACITY de rtlsdr_shim.c (2048) — count nunca deveria
- * passar disso na prática (mesmo stage1_count usado por fm_stereo_pilot),
- * clampado defensivamente em rds_decoder_process caso passe. */
+/* Covers rtlsdr_shim.c's WORK_CAPACITY (2048) — count should never exceed
+ * this in practice (same stage1_count used by fm_stereo_pilot), clamped
+ * defensively in rds_decoder_process just in case. */
 #define RDS_MIX_CAPACITY 2048
-#define RDS_DECIM_CAPACITY 256 /* >= RDS_MIX_CAPACITY/RDS_MPX_DECIM, com folga */
+#define RDS_DECIM_CAPACITY 256 /* >= RDS_MIX_CAPACITY/RDS_MPX_DECIM, with margin */
 
 #define GARDNER_LOOP_GAIN 0.02f
 #define COSTAS_LOOP_BW_HZ 30.0f
 #define COSTAS_ZETA 0.707f
 
 #define RDS_MAX_CONSECUTIVE_BLOCK_ERRORS 4
-/* ~44s a 1187.5bps sem conseguir travar sincronismo de bloco — tenta a
- * paridade oposta do par biphase (ver AVISO no .h sobre a ambiguidade de
- * qual chip do par vem primeiro). */
+/* ~44s at 1187.5bps without managing to lock block sync — tries the
+ * opposite parity of the biphase pair (see WARNING in the .h about the
+ * ambiguity of which chip of the pair comes first). */
 #define RDS_ACQUIRE_TIMEOUT_BITS (26L * 2000L)
 
 typedef enum {
@@ -44,14 +44,14 @@ typedef enum {
 } rds_offset_t;
 
 struct rds_decoder {
-    /* front-end: downconversão + decimação */
+    /* front-end: downconversion + decimation */
     fir_decimator_t rds_decim;
     float mix_i[RDS_MIX_CAPACITY];
     float mix_q[RDS_MIX_CAPACITY];
     float dec_i[RDS_DECIM_CAPACITY];
     float dec_q[RDS_DECIM_CAPACITY];
 
-    /* Gardner (timing de chip, 2375Hz) */
+    /* Gardner (chip timing, 2375Hz) */
     float sps;
     float mu;
     float hist_i[3];
@@ -61,52 +61,52 @@ struct rds_decoder {
     float prev_chip_q;
     int have_prev_chip;
 
-    /* Costas (fase residual BPSK, por chip) */
+    /* Costas (residual BPSK phase, per chip) */
     float costas_theta;
     float costas_freq;
     float costas_alpha;
     float costas_beta;
 
-    /* combinação do par biphase (2 chips -> 1 bit bruto) */
-    int biphase_slot; /* 0 = esperando o 1º chip do par, 1 = esperando o 2º */
+    /* biphase pair combining (2 chips -> 1 raw bit) */
+    int biphase_slot; /* 0 = waiting for the 1st chip of the pair, 1 = waiting for the 2nd */
     float biphase_first_i;
 
-    /* decodificação diferencial (bit bruto -> bit de dado) */
+    /* differential decoding (raw bit -> data bit) */
     int prev_biphase_bit;
     int have_prev_biphase_bit;
 
-    /* sincronismo de bloco de 26 bits */
+    /* 26-bit block sync */
     uint32_t reg;
     int sync_locked;
     long unsynced_bit_count;
     int candidate_active;
     int candidate_countdown;
     uint16_t candidate_a_data;
-    int block_bit_counter; /* 0..25, só usado enquanto sync_locked */
-    int expected_slot;     /* 0..3 = A,B,C/C',D, só usado enquanto sync_locked */
+    int block_bit_counter; /* 0..25, only used while sync_locked */
+    int expected_slot;     /* 0..3 = A,B,C/C',D, only used while sync_locked */
     int consecutive_block_errors;
     uint16_t block_data[4];
 
-    /* resultado decodificado */
+    /* decoded result */
     uint16_t pi_code;
     uint8_t pty;
     int tp;
     int ta;
     char ps[9];
     char radiotext[65];
-    int last_ab_flag; /* -1 = ainda não visto */
+    int last_ab_flag; /* -1 = not seen yet */
     uint32_t generation;
     uint32_t valid_group_count;
 };
 
-/* ---- Sincronismo de bloco: CRC/offset words -------------------------------
- * Matriz de verificação de paridade (26 linhas x 10 bits) e os 5 valores de
- * síndrome A/B/C/C'/D conferidos byte a byte contra redsea
- * (github.com/windytan/redsea, src/block_sync.cc/hh, MIT) — não
- * confiados de memória, ver AVISO em rds_decoder.h. calculateSyndrome é uma
- * tradução direta da função de mesmo nome de lá: bit k (a partir do LSB do
- * registrador de 26 bits, k=0 é o bit mais recente) contribui com a linha
- * [25-k] da matriz. */
+/* ---- Block sync: CRC/offset words -----------------------------------------
+ * Parity check matrix (26 rows x 10 bits) and the 5 A/B/C/C'/D syndrome
+ * values checked byte for byte against redsea
+ * (github.com/windytan/redsea, src/block_sync.cc/hh, MIT) — not trusted
+ * from memory, see WARNING in rds_decoder.h. calculateSyndrome is a direct
+ * translation of the function of the same name from there: bit k (from the
+ * LSB of the 26-bit register, k=0 is the most recent bit) contributes row
+ * [25-k] of the matrix. */
 static const uint32_t RDS_PARITY_CHECK_MATRIX[26] = {
     0x200, 0x100, 0x080, 0x040, 0x020, 0x010, 0x008, 0x004, 0x002, 0x001,
     0x2DC, 0x16E, 0x0B7, 0x287, 0x39F, 0x313, 0x355, 0x376, 0x1BB, 0x201,
@@ -144,7 +144,7 @@ static int rds_offset_matches_slot(int slot, rds_offset_t actual) {
     }
 }
 
-/* ---- Parsing de grupo ------------------------------------------------- */
+/* ---- Group parsing ------------------------------------------------------ */
 
 static void rds_set_ps_chars(rds_decoder_t *d, int pos, char c0, char c1) {
     if (pos < 0 || pos > 6) return;
@@ -162,9 +162,10 @@ static void rds_set_rt_chars(rds_decoder_t *d, int pos, char c0, char c1) {
     if (changed) d->generation++;
 }
 
-/* Bits exatos (GTYPE b15-12, B0 b11, TP b10, PTY b9-5, PS: TA b4/segmento
- * b1-0, RT: A/B b4/segmento b3-0) conferidos contra a documentação padrão
- * RDS/RBDS e contra station.cc do redsea — ver AVISO em rds_decoder.h. */
+/* Exact bits (GTYPE b15-12, B0 b11, TP b10, PTY b9-5, PS: TA b4/segment
+ * b1-0, RT: A/B b4/segment b3-0) checked against the standard RDS/RBDS
+ * documentation and against redsea's station.cc — see WARNING in
+ * rds_decoder.h. */
 static void rds_handle_group(rds_decoder_t *d) {
     uint16_t block_a = d->block_data[0];
     uint16_t block_b = d->block_data[1];
@@ -175,7 +176,7 @@ static void rds_handle_group(rds_decoder_t *d) {
     d->pty = (uint8_t)((block_b >> 5) & 0x1F);
     d->tp = (block_b >> 10) & 0x1;
     int group_type = (block_b >> 12) & 0xF;
-    int version_b = (block_b >> 11) & 0x1; /* 0 = versão A, 1 = versão B */
+    int version_b = (block_b >> 11) & 0x1; /* 0 = version A, 1 = version B */
 
     if (group_type == 0) {
         d->ta = (block_b >> 4) & 0x1;
@@ -184,21 +185,22 @@ static void rds_handle_group(rds_decoder_t *d) {
     } else if (group_type == 2) {
         int ab = (block_b >> 4) & 0x1;
         if (d->last_ab_flag != -1 && ab != d->last_ab_flag) {
-            /* A/B alternou: sinaliza troca de texto — limpa o buffer antigo
-             * (padrão RDS) em vez de deixar caracteres velhos misturados. */
+            /* A/B flag toggled: signals a text change — clears the old
+             * buffer (per the RDS standard) instead of leaving stale
+             * characters mixed in. */
             memset(d->radiotext, ' ', 64);
             d->generation++;
         }
         d->last_ab_flag = ab;
         int segment = block_b & 0xF;
         if (version_b == 0) {
-            /* 2A: 4 chars/grupo — 2 do bloco C, 2 do bloco D. */
+            /* 2A: 4 chars/group — 2 from block C, 2 from block D. */
             int pos = segment * 4;
             rds_set_rt_chars(d, pos, (char)((block_c >> 8) & 0xFF), (char)(block_c & 0xFF));
             rds_set_rt_chars(d, pos + 2, (char)((block_d >> 8) & 0xFF), (char)(block_d & 0xFF));
         } else {
-            /* 2B: só 2 chars/grupo, só do bloco D (bloco C não carrega
-             * texto nesse tipo — ver rds_decoder.h). */
+            /* 2B: only 2 chars/group, only from block D (block C doesn't
+             * carry text in this type — see rds_decoder.h). */
             int pos = segment * 2;
             rds_set_rt_chars(d, pos, (char)((block_d >> 8) & 0xFF), (char)(block_d & 0xFF));
         }
@@ -207,7 +209,7 @@ static void rds_handle_group(rds_decoder_t *d) {
     d->valid_group_count++;
 }
 
-/* ---- Máquina de estados de sincronismo de bloco ------------------------ */
+/* ---- Block sync state machine ------------------------------------------ */
 
 static void rds_feed_bit(rds_decoder_t *d, int bit) {
     d->reg = ((d->reg << 1) | (uint32_t)(bit & 1)) & 0x3FFFFFFu; /* 26 bits */
@@ -216,7 +218,7 @@ static void rds_feed_bit(rds_decoder_t *d, int bit) {
         d->unsynced_bit_count++;
         if (d->unsynced_bit_count >= RDS_ACQUIRE_TIMEOUT_BITS) {
             d->unsynced_bit_count = 0;
-            d->biphase_slot ^= 1; /* tenta a paridade oposta do par biphase */
+            d->biphase_slot ^= 1; /* try the opposite parity of the biphase pair */
             d->candidate_active = 0;
         }
 
@@ -274,7 +276,7 @@ static void rds_feed_bit(rds_decoder_t *d, int bit) {
     }
 }
 
-/* ---- API pública -------------------------------------------------------- */
+/* ---- Public API ---------------------------------------------------------- */
 
 rds_decoder_t *rds_decoder_create(float mpx_sample_rate_hz) {
     rds_decoder_t *d = (rds_decoder_t *)calloc(1, sizeof(rds_decoder_t));
@@ -316,7 +318,7 @@ void rds_decoder_destroy(rds_decoder_t *d) {
 
 void rds_decoder_process(rds_decoder_t *d, const float *mpx, const float *cos3wt, const float *sin3wt, size_t count) {
     if (count > RDS_MIX_CAPACITY) {
-        count = RDS_MIX_CAPACITY; /* proteção defensiva, não deveria disparar na prática — ver .h */
+        count = RDS_MIX_CAPACITY; /* defensive guard, shouldn't trigger in practice — see .h */
     }
 
     for (size_t n = 0; n < count; n++) {
@@ -349,10 +351,11 @@ void rds_decoder_process(rds_decoder_t *d, const float *mpx, const float *cos3wt
             continue;
         }
 
-        /* Gardner: interpola a amostra "on-time" na posição fracionária
-         * alvo (frac, dentro da janela [hist[1], hist[2]]) e ajusta mu com
-         * base no erro (aproximação de "mid sample" via ponto médio entre
-         * os 2 últimos chips decididos — ver AVISO em rds_decoder.h). */
+        /* Gardner: interpolates the "on-time" sample at the target
+         * fractional position (frac, within the [hist[1], hist[2]] window)
+         * and adjusts mu based on the error ("mid sample" approximation via
+         * the midpoint between the last 2 decided chips — see WARNING in
+         * rds_decoder.h). */
         float frac = 1.0f + d->mu;
         if (frac < 0.0f) frac = 0.0f;
         if (frac > 1.0f) frac = 1.0f;
@@ -369,9 +372,9 @@ void rds_decoder_process(rds_decoder_t *d, const float *mpx, const float *cos3wt
             d->mu += d->sps;
         }
 
-        /* Costas (BPSK) por chip — corrige rotação de fase residual entre a
-         * referência de 3ª harmônica (fm_stereo_pilot) e a fase real do RDS
-         * nesta cadeia de decimação. */
+        /* Per-chip Costas (BPSK) — corrects residual phase rotation between
+         * the 3rd-harmonic reference (fm_stereo_pilot) and the actual RDS
+         * phase through this decimation chain. */
         float costas_sin = sinf(d->costas_theta);
         float costas_cos = cosf(d->costas_theta);
         float corrected_i = on_i * costas_cos + on_q * costas_sin;
@@ -389,8 +392,8 @@ void rds_decoder_process(rds_decoder_t *d, const float *mpx, const float *cos3wt
         d->prev_chip_q = on_q;
         d->have_prev_chip = 1;
 
-        /* Combinação do par biphase: 2 chips -> 1 bit bruto (comparação
-         * suave entre os dois, não decisão dura dupla). */
+        /* Biphase pair combining: 2 chips -> 1 raw bit (soft comparison
+         * between the two, not a double hard decision). */
         if (d->biphase_slot == 0) {
             d->biphase_first_i = corrected_i;
             d->biphase_slot = 1;
@@ -399,9 +402,9 @@ void rds_decoder_process(rds_decoder_t *d, const float *mpx, const float *cos3wt
             d->biphase_slot = 0;
 
             if (d->have_prev_biphase_bit) {
-                /* Decodificação diferencial — também resolve de graça a
-                 * ambiguidade de ±180° do Costas (inverter todos os bits
-                 * brutos não muda o XOR consecutivo). */
+                /* Differential decoding — also resolves the Costas loop's
+                 * ±180° ambiguity for free (flipping all raw bits doesn't
+                 * change the consecutive XOR). */
                 int data_bit = biphase_bit ^ d->prev_biphase_bit;
                 rds_feed_bit(d, data_bit);
             }

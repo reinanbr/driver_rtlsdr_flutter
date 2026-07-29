@@ -1,17 +1,18 @@
 #!/usr/bin/env bash
-# Wrapper de compilador/linker usado via CMAKE_<LANG>_COMPILER_LAUNCHER e
-# CMAKE_<LANG>_LINKER_LAUNCHER (ver cpp/CMakeLists.txt).
+# Compiler/linker wrapper used via CMAKE_<LANG>_COMPILER_LAUNCHER and
+# CMAKE_<LANG>_LINKER_LAUNCHER (see cpp/CMakeLists.txt).
 #
-# O snap do Flutter exporta CPLUS_INCLUDE_PATH/LIBRARY_PATH apontando pro
-# libstdc++ 9 empacotado nele (usado internamente pro build do target
-# desktop Linux) — isso vaza pro processo do Gradle e daí pro ninja/clang do
-# build nativo Android, fazendo o clang encontrar headers/libs C++ do
-# host Linux incompatíveis em vez do libc++/bionic do NDK (erros bizarros
-# tipo "redefinition of 'sigaction'" ou "memset não declarado").
+# The Flutter snap exports CPLUS_INCLUDE_PATH/LIBRARY_PATH pointing at the
+# libstdc++ 9 bundled with it (used internally to build the Linux desktop
+# target) — this leaks into the Gradle process and from there into the
+# native Android build's ninja/clang, making clang find incompatible
+# Linux host C++ headers/libs instead of the NDK's libc++/bionic (bizarre
+# errors like "redefinition of 'sigaction'" or "memset not declared").
 #
-# Como esse wrapper roda como um processo FILHO novo a cada invocação do
-# ninja, ele pode remover essas variáveis do seu próprio ambiente antes de
-# de fato executar o compilador/linker real — diferente de tentar vencer a
-# ordem de busca via flags, que vira caça a header poluído sem fim.
+# Since this wrapper runs as a brand-new CHILD process on every ninja
+# invocation, it can strip these variables from its own environment before
+# actually executing the real compiler/linker — unlike trying to beat the
+# search order with flags, which turns into an endless chase of polluted
+# headers.
 unset CPLUS_INCLUDE_PATH C_INCLUDE_PATH CPATH LIBRARY_PATH
 exec "$@"

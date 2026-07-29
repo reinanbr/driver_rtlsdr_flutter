@@ -29,9 +29,9 @@ android {
     namespace = "com.rtlsdrmobile.driver_rtlsdr"
 
     compileSdk = 36
-    // Pinada explicitamente (não flutter.ndkVersion, este módulo não tem
-    // acesso ao objeto `flutter` do app host) — mesma versão usada e
-    // validada pelo app principal (rtl-sdr mobile/android/app/build.gradle.kts).
+    // Explicitly pinned (not flutter.ndkVersion, this module has no
+    // access to the host app's `flutter` object) — same version used and
+    // validated by the main app (rtl-sdr mobile/android/app/build.gradle.kts).
     ndkVersion = "28.2.13676358"
 
     compileOptions {
@@ -49,7 +49,7 @@ android {
     }
 
     defaultConfig {
-        // 26 exigido pelo caminho de baixa latência do Oboe/AAudio.
+        // 26 required by Oboe/AAudio's low-latency path.
         minSdk = 26
 
         ndk {
@@ -71,8 +71,8 @@ android {
         }
     }
 
-    // Prefab expõe os headers/libs C++ do Oboe (AAR) pro CMake via
-    // find_package(oboe CONFIG) — ver src/main/cpp/CMakeLists.txt.
+    // Prefab exposes Oboe's C++ headers/libs (AAR) to CMake via
+    // find_package(oboe CONFIG) — see src/main/cpp/CMakeLists.txt.
     buildFeatures {
         prefab = true
     }

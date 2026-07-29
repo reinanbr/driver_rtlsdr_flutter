@@ -27,47 +27,45 @@
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, LOG_TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, LOG_TAG, __VA_ARGS__)
 
-/* 4 MiB ~= 1s de margem a 2.048 Msps (2 bytes/amostra) antes de a thread de
- * DSP precisar acompanhar o ritmo. Precisa ser potência de 2 (ver
- * ring_buffer.h). */
+/* 4 MiB ~= 1s of margin at 2.048 Msps (2 bytes/sample) before the DSP
+ * thread needs to keep up. Must be a power of 2 (see ring_buffer.h). */
 #define IQ_RING_CAPACITY (4u * 1024u * 1024u)
-/* 256 KiB ~= 2s de margem de PCM estéreo 16-bit a 32kHz (dobrado do valor
- * original de 128 KiB, mono-only, pra cobrir o pior caso WFM estéreo —
- * folga extra em NFM/AM mono é inofensiva). Folga contra jitter de
- * agendamento entre a thread de DSP e o callback de áudio do Oboe. */
+/* 256 KiB ~= 2s of margin for 16-bit stereo PCM at 32kHz (doubled from the
+ * original 128 KiB, mono-only value, to cover the WFM stereo worst case —
+ * extra headroom in mono NFM/AM is harmless). Margin against scheduling
+ * jitter between the DSP thread and Oboe's audio callback. */
 #define PCM_RING_CAPACITY (256u * 1024u)
 #define DEFAULT_SAMPLE_RATE_HZ 1024000u
-#define DEFAULT_FREQUENCY_HZ 100000000u /* 100.0 MHz, dentro da faixa de FM comercial */
+#define DEFAULT_FREQUENCY_HZ 100000000u /* 100.0 MHz, within the commercial FM band */
 #define DEFAULT_SQUELCH_THRESHOLD_DB (-40.0f)
 
-/* Pipeline de DSP: decimação em 2 estágios, parametrizada por modo —
- * IQ bruto -> banda de canal (decimação por inteiro a partir da taxa de
- * captura) -> demodulador -> áudio final (decimação de novo, agora do
- * sinal real pós-demodulação). WFM precisa de banda de canal larga
- * (~200kHz, desvio de até 75kHz); NFM/AM são bem mais estreitos (~10-25kHz)
- * então decimam mais logo no primeiro estágio — menos ruído de banda
- * adjacente entrando no demodulador. */
+/* DSP pipeline: two-stage decimation, parameterized by mode — raw IQ ->
+ * channel band (integer decimation from the capture rate) -> demodulator
+ * -> final audio (decimated again, now the real post-demodulation
+ * signal). WFM needs a wide channel band (~200kHz, deviation up to 75kHz);
+ * NFM/AM are much narrower (~10-25kHz) so they decimate more right in the
+ * first stage — less adjacent-band noise entering the demodulator. */
 #define IQ_STAGE_TARGET_WFM_HZ 256000u
-#define IQ_STAGE_TARGET_NARROW_HZ 32000u /* NFM e AM */
+#define IQ_STAGE_TARGET_NARROW_HZ 32000u /* NFM and AM */
 #define AUDIO_TARGET_HZ 32000u
 #define FIR_NUM_TAPS 63
 #define DSP_READ_CHUNK_BYTES 4096u
 #define WORK_CAPACITY (DSP_READ_CHUNK_BYTES / 2u)
 
 #define WFM_MAX_DEVIATION_HZ 75000.0f
-#define WFM_DEEMPHASIS_TAU_US 50.0f /* Europa/maior parte do mundo; EUA/Coreia usam 75 */
+#define WFM_DEEMPHASIS_TAU_US 50.0f /* Europe/most of the world; US/Korea use 75 */
 #define NFM_MAX_DEVIATION_HZ 5000.0f
 #define SQUELCH_HYSTERESIS_DB 2.0f
 
-/* Constante de tempo do blend mono<->estéreo (rampa suave ao ganhar/perder
- * lock do piloto, evita corte abrupto — ver dsp_thread_main). Estimativa de
- * partida (~150ms), não validada em hardware real. */
+/* Time constant of the mono<->stereo blend (smooth ramp when gaining/losing
+ * pilot lock, avoids an abrupt cut — see dsp_thread_main). Starting-point
+ * estimate (~150ms), not validated on real hardware. */
 #define STEREO_BLEND_TAU_S 0.15f
 
-/* Espectro: FFT sobre IQ bruto (banda inteira, pré-decimação), throttled
- * pra ~20Hz (a thread de DSP roda a ~500 iterações/s com o chunk de leitura
- * atual). 1024 bins é bastante granularidade pra um waterfall em tela de
- * celular; shim_get_spectrum_db faz downsample se o chamador pedir menos. */
+/* Spectrum: FFT over raw IQ (whole band, pre-decimation), throttled to
+ * ~20Hz (the DSP thread runs at ~500 iterations/s with the current read
+ * chunk). 1024 bins is plenty of granularity for a waterfall on a phone
+ * screen; shim_get_spectrum_db downsamples if the caller asks for fewer. */
 #define SPECTRUM_FFT_SIZE 1024
 #define SPECTRUM_UPDATE_INTERVAL_ITERS 25
 
@@ -100,23 +98,23 @@ typedef struct {
     _Atomic float rf_level_dbfs;
     _Atomic int squelch_open;
 
-    /* Estéreo (WFM): stereo_enabled é o toggle do usuário (lido ao vivo,
-     * sem precisar reiniciar o streaming — diferente de demod_mode), os
-     * outros dois são só-leitura pro Dart, escritos pela dsp_thread a cada
-     * bloco. audio_channel_count é lido por pcm_pull_callback (thread do
-     * Oboe) pra saber quantas amostras por frame puxar do pcm_ring — 1 ou
-     * 2, decidido pela dsp_thread ao iniciar (2 sempre que mode==WFM,
-     * mesmo sem lock/com stereo_enabled=0, pra não precisar reabrir o Oboe
-     * a cada toggle; ver rtlsdr_shim.h). */
+    /* Stereo (WFM): stereo_enabled is the user's toggle (read live, no
+     * need to restart streaming — unlike demod_mode), the other two are
+     * read-only for Dart, written by dsp_thread every block.
+     * audio_channel_count is read by pcm_pull_callback (Oboe thread) to
+     * know how many samples per frame to pull from pcm_ring — 1 or 2,
+     * decided by dsp_thread at startup (always 2 whenever mode==WFM, even
+     * without lock/with stereo_enabled=0, to avoid reopening Oboe on every
+     * toggle; see rtlsdr_shim.h). */
     _Atomic int stereo_enabled;
     _Atomic int stereo_locked;
     _Atomic float pilot_level;
     _Atomic int audio_channel_count;
 
-    /* RDS (WFM) — snapshot protegido por rds_lock, mesmo padrão do
-     * espectro (spectrum_lock/spectrum_snapshot): PI/PS/RadioText são
-     * variável-tamanho, não cabem num _Atomic simples. rds_enabled é o
-     * toggle do usuário, aplicado ao vivo. */
+    /* RDS (WFM) — snapshot protected by rds_lock, same pattern as the
+     * spectrum (spectrum_lock/spectrum_snapshot): PI/PS/RadioText are
+     * variable-length, don't fit in a plain _Atomic. rds_enabled is the
+     * user's toggle, applied live. */
     _Atomic int rds_enabled;
     pthread_mutex_t rds_lock;
     rds_snapshot_t rds_snapshot;
@@ -125,10 +123,10 @@ typedef struct {
     float spectrum_snapshot[SPECTRUM_FFT_SIZE];
     _Atomic int spectrum_valid;
 
-    /* Gravação: protegida por record_lock (não pelos atomics sozinhos) —
-     * shim_stop_recording pode rodar concorrentemente com a escrita da
-     * dsp_thread, e sem lock teria uma janela de use-after-free entre o
-     * "recording_active ainda é 1" e o wav_writer_write de fato (ver
+    /* Recording: protected by record_lock (not by the atomics alone) —
+     * shim_stop_recording can run concurrently with dsp_thread's write,
+     * and without a lock there would be a use-after-free window between
+     * "recording_active is still 1" and the actual wav_writer_write (see
      * stop_recording_if_active()). */
     pthread_mutex_t record_lock;
     wav_writer_t *record_writer;
@@ -143,9 +141,9 @@ static shim_state_t g_state = {
     .rds_lock = PTHREAD_MUTEX_INITIALIZER,
 };
 
-/* ---- Callback do leitor USB (chamado de dentro de libusb_handle_events,
- * na usb_thread) — precisa ser rápido: só copia para o ring e conta bytes,
- * sem processar nada aqui. */
+/* ---- USB reader callback (called from inside libusb_handle_events, on
+ * usb_thread) — needs to be fast: just copies into the ring and counts
+ * bytes, no processing here. */
 static void iq_callback(unsigned char *buf, uint32_t len, void *ctx) {
     (void)ctx;
     if (atomic_load_explicit(&g_state.stop_requested, memory_order_relaxed)) {
@@ -166,20 +164,21 @@ static void *usb_thread_main(void *arg) {
 
     rtlsdr_reset_buffer(rtl_dev);
 
-    /* Bloqueia até rtlsdr_cancel_async() ser chamado (de outra thread —
-     * mesmo padrão usado por rtl_tcp.c upstream: read_async roda numa
-     * thread enquanto um comando de outra thread cancela). */
+    /* Blocks until rtlsdr_cancel_async() is called (from another thread —
+     * same pattern used by upstream rtl_tcp.c: read_async runs on one
+     * thread while a command from another thread cancels it). */
     int r = rtlsdr_read_async(rtl_dev, iq_callback, NULL, 0, 0);
     if (r != 0) {
-        LOGE("rtlsdr_read_async saiu com erro %d", r);
+        LOGE("rtlsdr_read_async exited with error %d", r);
     }
     return NULL;
 }
 
-/* Chamado pela thread de áudio do Oboe (audio_sink_oboe.cpp) — só puxa do
- * ring de PCM, nunca bloqueia. `num_frames`/retorno são em FRAMES (ver
- * audio_sink.h) — multiplica/divide por audio_channel_count pra converter
- * de/pra amostras int16 intercaladas de fato armazenadas no ring. */
+/* Called by Oboe's audio thread (audio_sink_oboe.cpp) — only pulls from
+ * the PCM ring, never blocks. `num_frames`/return value are in FRAMES
+ * (see audio_sink.h) — multiplies/divides by audio_channel_count to
+ * convert to/from the interleaved int16 samples actually stored in the
+ * ring. */
 static size_t pcm_pull_callback(int16_t *out, size_t num_frames, void *user_data) {
     (void)user_data;
     int channels = atomic_load_explicit(&g_state.audio_channel_count, memory_order_relaxed);
@@ -209,10 +208,10 @@ static float compute_rms_dbfs(const float *i, const float *q, size_t count) {
     return (rms > 1e-9f) ? 20.0f * log10f(rms) : -120.0f;
 }
 
-/* Thread de DSP: consome IQ bruto do ring, decimação + demodulador (WFM/
- * NFM/AM, conforme o modo lido no início — trocar de modo exige parar e
- * reiniciar o streaming) + squelch (NFM/AM) + decimação de áudio, escreve
- * PCM no ring de áudio consumido pelo callback do Oboe. */
+/* DSP thread: consumes raw IQ from the ring, decimation + demodulator
+ * (WFM/NFM/AM, per the mode read at startup — switching modes requires
+ * stopping and restarting streaming) + squelch (NFM/AM) + audio
+ * decimation, writes PCM to the audio ring consumed by Oboe's callback. */
 static void *dsp_thread_main(void *arg) {
     (void)arg;
 
@@ -234,28 +233,28 @@ static void *dsp_thread_main(void *arg) {
     }
     uint32_t audio_rate = iq_stage_rate / (uint32_t)audio_decim;
 
-    /* WFM sempre abre o Oboe em estéreo (2 canais), mesmo sem lock de
-     * piloto ou com o usuário preferindo mono — nesse caso os dois canais
-     * carregam áudio idêntico (blend=0, ver loop principal). Isso evita
-     * fechar/reabrir o stream do Oboe a cada shim_set_stereo_enabled ou
-     * cada vez que o piloto trava/destrava, que só troca o atomic
-     * stereo_enabled/stereo_locked ao vivo. */
+    /* WFM always opens Oboe in stereo (2 channels), even without pilot
+     * lock or with the user preferring mono — in that case both channels
+     * carry identical audio (blend=0, see main loop). This avoids
+     * closing/reopening the Oboe stream on every shim_set_stereo_enabled
+     * or every time the pilot locks/unlocks, which only flips the
+     * stereo_enabled/stereo_locked atomic live. */
     int channel_count = (mode == DEMOD_WFM) ? 2 : 1;
     atomic_store_explicit(&g_state.audio_channel_count, channel_count, memory_order_relaxed);
 
     fir_decimator_t iq_stage;
     fir_decimator_t audio_stage;
     if (fir_decimator_init(&iq_stage, iq_decim, FIR_NUM_TAPS, 0.9f / (float)iq_decim, /*complex_mode=*/1) != 0) {
-        LOGE("fir_decimator_init (IQ) falhou");
+        LOGE("fir_decimator_init (IQ) failed");
         return NULL;
     }
-    /* Em WFM, audio_stage decima L e R em lockstep (complex_mode=1 tratado
-     * como dois filtros reais em paralelo, não uma rotação IQ de verdade —
-     * ver dsp/fir_decimator.h). NFM/AM continuam decimando um único sinal
-     * real, exatamente como antes. */
+    /* In WFM, audio_stage decimates L and R in lockstep (complex_mode=1
+     * treated as two parallel real filters, not an actual IQ rotation —
+     * see dsp/fir_decimator.h). NFM/AM keep decimating a single real
+     * signal, exactly as before. */
     if (fir_decimator_init(&audio_stage, audio_decim, FIR_NUM_TAPS, 0.9f / (float)audio_decim,
                             /*complex_mode=*/(mode == DEMOD_WFM) ? 1 : 0) != 0) {
-        LOGE("fir_decimator_init (audio) falhou");
+        LOGE("fir_decimator_init (audio) failed");
         fir_decimator_destroy(&iq_stage);
         return NULL;
     }
@@ -266,7 +265,7 @@ static void *dsp_thread_main(void *arg) {
     rds_decoder_t *rds_decoder = NULL;
     deemphasis_t deemph_l;
     deemphasis_t deemph_r;
-    float blend = 0.0f;      /* 0 = mono (L=R=L+R), 1 = estéreo pleno — ver loop principal */
+    float blend = 0.0f;      /* 0 = mono (L=R=L+R), 1 = full stereo — see main loop */
     float blend_alpha = 0.0f;
     switch (mode) {
         case DEMOD_NFM:
@@ -277,16 +276,16 @@ static void *dsp_thread_main(void *arg) {
             break;
         case DEMOD_WFM:
         default:
-            /* De-ênfase DESLIGADA aqui (0.0f) — diferente de antes. O MPX
-             * cru precisa sobreviver intacto (piloto de 19kHz, subportadora
-             * de 38kHz) até depois do demux L/R; a de-ênfase de verdade
-             * roda depois, por canal, via deemph_l/deemph_r (ver abaixo e
+            /* De-emphasis OFF here (0.0f) — unlike before. The raw MPX
+             * needs to survive intact (19kHz pilot, 38kHz subcarrier)
+             * until after the L/R demux; the actual de-emphasis runs
+             * afterward, per channel, via deemph_l/deemph_r (see below and
              * dsp/deemphasis.h). */
             fm_demod_init(&fm_demod, (float)iq_stage_rate, WFM_MAX_DEVIATION_HZ, /*deemphasis=*/0.0f);
             fm_stereo_pilot_init(&stereo_pilot, (float)iq_stage_rate);
             rds_decoder = rds_decoder_create((float)iq_stage_rate);
             if (!rds_decoder) {
-                LOGE("rds_decoder_create falhou — RDS fica sem dados nesta sessão");
+                LOGE("rds_decoder_create failed — RDS will have no data this session");
             }
             deemphasis_init(&deemph_l, (float)audio_rate, WFM_DEEMPHASIS_TAU_US);
             deemphasis_init(&deemph_r, (float)audio_rate, WFM_DEEMPHASIS_TAU_US);
@@ -297,18 +296,18 @@ static void *dsp_thread_main(void *arg) {
             break;
     }
 
-    /* Reabrir o stream do Oboe logo após fechar o anterior (ex: reinício
-     * automático ao trocar de modo em shim_set_demod_mode/RadioController)
-     * pode falhar transitoriamente — o áudio HAL às vezes ainda não
-     * terminou de liberar os recursos do stream anterior. Sem retry, o
-     * streaming seguia rodando normalmente (IQ, RF, squelch) mas sem
-     * áudio nenhum, silenciosamente. */
+    /* Reopening the Oboe stream right after closing the previous one
+     * (e.g. automatic restart when switching modes in
+     * shim_set_demod_mode/RadioController) can fail transiently — the
+     * audio HAL sometimes hasn't finished releasing the previous stream's
+     * resources yet. Without a retry, streaming kept running normally
+     * (IQ, RF, squelch) but with no audio at all, silently. */
     int audio_ready = 0;
     for (int attempt = 1; attempt <= 3 && !audio_ready; attempt++) {
         if (audio_sink_start(audio_rate, channel_count, pcm_pull_callback, NULL) == 0) {
             audio_ready = 1;
         } else {
-            LOGE("audio_sink_start falhou (tentativa %d/3, taxa %u Hz, %d canais)", attempt, audio_rate,
+            LOGE("audio_sink_start failed (attempt %d/3, rate %u Hz, %d channels)", attempt, audio_rate,
                  channel_count);
             if (attempt < 3) {
                 usleep(100000);
@@ -316,16 +315,16 @@ static void *dsp_thread_main(void *arg) {
         }
     }
     if (!audio_ready) {
-        LOGE("audio_sink_start desistiu após 3 tentativas — streaming vai continuar sem áudio");
+        LOGE("audio_sink_start gave up after 3 attempts — streaming will continue without audio");
     }
 
-    LOGI("Pipeline DSP: modo %d, entrada %u Hz -> decim IQ %d -> %u Hz -> decim audio %d -> %u Hz (%d canal(is))",
+    LOGI("DSP pipeline: mode %d, input %u Hz -> IQ decim %d -> %u Hz -> audio decim %d -> %u Hz (%d channel(s))",
          (int)mode, input_rate, iq_decim, iq_stage_rate, audio_decim, audio_rate, channel_count);
 
     spectrum_fft_t spectrum;
     int spectrum_ok = (spectrum_fft_init(&spectrum, SPECTRUM_FFT_SIZE) == 0);
     if (!spectrum_ok) {
-        LOGE("spectrum_fft_init falhou — waterfall fica sem dados nesta sessão");
+        LOGE("spectrum_fft_init failed — waterfall will have no data this session");
     }
     int spectrum_counter = 0;
     float spectrum_out[SPECTRUM_FFT_SIZE];
@@ -335,21 +334,22 @@ static void *dsp_thread_main(void *arg) {
     float iq_q[WORK_CAPACITY];
     float stage1_i[WORK_CAPACITY];
     float stage1_q[WORK_CAPACITY];
-    float audio_pre[WORK_CAPACITY]; /* MPX cru (WFM) ou áudio demodulado (NFM/AM); reaproveitado como L in-place em WFM */
-    float audio_out[WORK_CAPACITY]; /* áudio mono decimado, ou L decimado em WFM */
-    int16_t pcm_out[2 * WORK_CAPACITY]; /* mono: audio_count amostras; estéreo: audio_count*2 intercaladas L,R,L,R... */
+    float audio_pre[WORK_CAPACITY]; /* raw MPX (WFM) or demodulated audio (NFM/AM); reused as L in-place in WFM */
+    float audio_out[WORK_CAPACITY]; /* decimated mono audio, or decimated L in WFM */
+    int16_t pcm_out[2 * WORK_CAPACITY]; /* mono: audio_count samples; stereo: audio_count*2 interleaved L,R,L,R... */
 
-    /* Só usados em WFM — ver switch(mode) acima onde stereo_pilot é
-     * inicializado. cos2wt: referência coerente de 38kHz (2ª harmônica do
-     * piloto) pro demux L-R. mpx_diff: L-R banda base, reaproveitado como R
-     * in-place (mesma técnica de audio_pre virar L). audio_out_r: R pós-
-     * decimação (par de audio_out, que vira L pós-decimação em WFM). */
+    /* Only used in WFM — see switch(mode) above where stereo_pilot is
+     * initialized. cos2wt: coherent 38kHz reference (2nd harmonic of the
+     * pilot) for the L-R demux. mpx_diff: baseband L-R, reused as R
+     * in-place (same technique as audio_pre becoming L). audio_out_r: R
+     * post-decimation (counterpart of audio_out, which becomes L
+     * post-decimation in WFM). */
     float cos2wt[WORK_CAPACITY];
     float mpx_diff[WORK_CAPACITY];
     float audio_out_r[WORK_CAPACITY];
 
-    /* Só usados quando rds_decoder != NULL — 3ª harmônica do piloto
-     * (57kHz), mesma PLL de cos2wt, pra downconversão do RDS (ver
+    /* Only used when rds_decoder != NULL — 3rd harmonic of the pilot
+     * (57kHz), same PLL as cos2wt, for RDS downconversion (see
      * dsp/rds_decoder.h). */
     float cos3wt[WORK_CAPACITY];
     float sin3wt[WORK_CAPACITY];
@@ -365,8 +365,8 @@ static void *dsp_thread_main(void *arg) {
 
         size_t pairs = n / 2;
         for (size_t k = 0; k < pairs; k++) {
-            /* RTL2832U entrega IQ 8-bit unsigned offset-binary (0..255,
-             * centro em ~127.5) — normaliza pra -1..1. */
+            /* RTL2832U delivers 8-bit unsigned offset-binary IQ (0..255,
+             * centered at ~127.5) — normalizes to -1..1. */
             iq_i[k] = ((float)raw[2 * k] - 127.5f) / 127.5f;
             iq_q[k] = ((float)raw[2 * k + 1] - 127.5f) / 127.5f;
         }
@@ -375,7 +375,7 @@ static void *dsp_thread_main(void *arg) {
             spectrum_counter++;
             if (spectrum_counter >= SPECTRUM_UPDATE_INTERVAL_ITERS) {
                 spectrum_counter = 0;
-                /* usa as amostras mais recentes do bloco lido */
+                /* uses the most recent samples of the block just read */
                 size_t offset = pairs - (size_t)SPECTRUM_FFT_SIZE;
                 spectrum_fft_process(&spectrum, &iq_i[offset], &iq_q[offset], spectrum_out);
                 pthread_mutex_lock(&g_state.spectrum_lock);
@@ -414,9 +414,9 @@ static void *dsp_thread_main(void *arg) {
             audio_count =
                 fir_decimator_process(&audio_stage, audio_pre, NULL, stage1_count, audio_out, NULL, WORK_CAPACITY);
         } else {
-            /* DEMOD_WFM: audio_pre recebe o MPX cru (sem de-ênfase, ver
-             * fm_demod_init acima) — piloto de 19kHz + L+R (0-15kHz) +
-             * L-R em torno de 38kHz ainda intactos. */
+            /* DEMOD_WFM: audio_pre receives the raw MPX (no de-emphasis,
+             * see fm_demod_init above) — 19kHz pilot + L+R (0-15kHz) +
+             * L-R around 38kHz still intact. */
             fm_demod_process(&fm_demod, stage1_i, stage1_q, stage1_count, audio_pre);
 
             fm_stereo_pilot_process(&stereo_pilot, audio_pre, stage1_count, cos2wt, NULL, cos3wt, sin3wt);
@@ -425,11 +425,11 @@ static void *dsp_thread_main(void *arg) {
             atomic_store_explicit(&g_state.pilot_level, fm_stereo_pilot_amplitude(&stereo_pilot),
                                    memory_order_relaxed);
 
-            /* RDS: precisa rodar AQUI, com audio_pre ainda intacto (MPX
-             * cru) — o loop de blend logo abaixo reaproveita audio_pre
-             * in-place como L, o que destruiria a entrada do RDS se
-             * chamado depois. Só decodifica com o piloto travado (RDS é
-             * coerente com o piloto por definição do padrão). */
+            /* RDS: needs to run HERE, with audio_pre still intact (raw
+             * MPX) — the blend loop right below reuses audio_pre in-place
+             * as L, which would destroy RDS's input if called afterward.
+             * Only decodes with the pilot locked (RDS is coherent with the
+             * pilot by definition of the standard). */
             if (rds_decoder) {
                 int rds_enabled = atomic_load_explicit(&g_state.rds_enabled, memory_order_relaxed);
                 if (locked && rds_enabled) {
@@ -440,11 +440,11 @@ static void *dsp_thread_main(void *arg) {
                     g_state.rds_snapshot = snap;
                     pthread_mutex_unlock(&g_state.rds_lock);
                 } else {
-                    /* Sem lock do piloto (ou desabilitado pelo usuário):
-                     * não alimenta o decodificador, só reporta
-                     * sync_locked=0 — mantém PI/PS/RadioText já
-                     * decodificados como estavam (uma queda breve de lock
-                     * não deveria apagar o nome da estação da tela). */
+                    /* No pilot lock (or disabled by the user): doesn't
+                     * feed the decoder, only reports sync_locked=0 —
+                     * keeps the already-decoded PI/PS/RadioText as they
+                     * were (a brief lock drop shouldn't wipe the station
+                     * name off the screen). */
                     pthread_mutex_lock(&g_state.rds_lock);
                     g_state.rds_snapshot.sync_locked = 0;
                     pthread_mutex_unlock(&g_state.rds_lock);
@@ -454,13 +454,13 @@ static void *dsp_thread_main(void *arg) {
             int stereo_enabled = atomic_load_explicit(&g_state.stereo_enabled, memory_order_relaxed);
             float target_blend = (locked && stereo_enabled) ? 1.0f : 0.0f;
 
-            /* Demux L/R por amostra + rampa suave mono<->estéreo (blend,
-             * one-pole igual à de-ênfase) — evita corte abrupto ao
-             * ganhar/perder lock. blend=0 reproduz exatamente o pipeline
-             * mono de antes (L=R=L+R, sem perda de 6dB); blend=1 é o
-             * demux clássico L=(Σ+Δ)/2, R=(Σ-Δ)/2. audio_pre/mpx_diff são
-             * reaproveitados in-place como L/R — seguro porque o índice k
-             * é lido antes de ser sobrescrito, sem dependência entre k's. */
+            /* Per-sample L/R demux + smooth mono<->stereo ramp (blend,
+             * one-pole same as de-emphasis) — avoids an abrupt cut when
+             * gaining/losing lock. blend=0 reproduces exactly the old mono
+             * pipeline (L=R=L+R, no 6dB loss); blend=1 is the classic
+             * demux L=(Σ+Δ)/2, R=(Σ-Δ)/2. audio_pre/mpx_diff are reused
+             * in-place as L/R — safe because index k is read before being
+             * overwritten, with no dependency between k's. */
             for (size_t k = 0; k < stage1_count; k++) {
                 blend += blend_alpha * (target_blend - blend);
                 float lr_sum = audio_pre[k];
@@ -515,15 +515,16 @@ static void *dsp_thread_main(void *arg) {
 
         ring_buffer_write(&g_state.pcm_ring, (const uint8_t *)pcm_out, pcm_sample_count * sizeof(int16_t));
 
-        /* Grava o mesmo PCM que acabou de ir pro pcm_ring (tap, não
-         * ring buffer separado nem thread própria — ver rtlsdr_shim.h). O
-         * check do atomic fora do lock é só uma otimização pra não pagar
-         * mutex toda iteração quando não está gravando; a correção contra
-         * a corrida com shim_stop_recording vem do re-check de
-         * record_writer != NULL já dentro do lock. O canal do wav_writer
-         * foi fixado em shim_start_recording lendo audio_channel_count
-         * naquele momento — consistente aqui porque a UI (device_screen.dart)
-         * sempre para uma gravação em andamento antes de trocar de modo. */
+        /* Records the same PCM that just went to pcm_ring (a tap, not a
+         * separate ring buffer or its own thread — see rtlsdr_shim.h). The
+         * atomic check outside the lock is just an optimization to avoid
+         * paying for a mutex every iteration when not recording; the
+         * correctness against the race with shim_stop_recording comes
+         * from the re-check of record_writer != NULL already inside the
+         * lock. The wav_writer's channel count was fixed in
+         * shim_start_recording by reading audio_channel_count at that
+         * moment — consistent here because the UI (device_screen.dart)
+         * always stops an in-progress recording before switching modes. */
         if (atomic_load_explicit(&g_state.recording_active, memory_order_relaxed)) {
             pthread_mutex_lock(&g_state.record_lock);
             if (g_state.record_writer && wav_writer_write(g_state.record_writer, pcm_out, audio_count) == 0) {
@@ -546,13 +547,13 @@ static void *dsp_thread_main(void *arg) {
     atomic_store_explicit(&g_state.spectrum_valid, 0, memory_order_relaxed);
 
     while (ring_buffer_read(&g_state.iq_ring, raw, sizeof(raw)) > 0) {
-        /* drena o restante para não deixar overflow residual após o stop */
+        /* drains the remainder so no residual overflow is left after stop */
     }
     return NULL;
 }
 
 int32_t shim_open_with_fd(int32_t usb_fd, int32_t vendor_id, int32_t product_id) {
-    (void)vendor_id;  /* reservado para futuras diferenças por dongle */
+    (void)vendor_id;  /* reserved for future per-dongle differences */
     (void)product_id;
 
     pthread_mutex_lock(&g_state.lock);
@@ -567,7 +568,7 @@ int32_t shim_open_with_fd(int32_t usb_fd, int32_t vendor_id, int32_t product_id)
     opts[0].value.ival = 0;
     int r = libusb_init_context(&ctx, opts, 1);
     if (r != LIBUSB_SUCCESS) {
-        LOGE("libusb_init_context falhou: %d", r);
+        LOGE("libusb_init_context failed: %d", r);
         pthread_mutex_unlock(&g_state.lock);
         return SHIM_ERR_USB_WRAP_FAILED;
     }
@@ -575,7 +576,7 @@ int32_t shim_open_with_fd(int32_t usb_fd, int32_t vendor_id, int32_t product_id)
     libusb_device_handle *devh = NULL;
     r = libusb_wrap_sys_device(ctx, (intptr_t)usb_fd, &devh);
     if (r != LIBUSB_SUCCESS || devh == NULL) {
-        LOGE("libusb_wrap_sys_device falhou: %d", r);
+        LOGE("libusb_wrap_sys_device failed: %d", r);
         libusb_exit(ctx);
         pthread_mutex_unlock(&g_state.lock);
         return SHIM_ERR_USB_WRAP_FAILED;
@@ -584,22 +585,22 @@ int32_t shim_open_with_fd(int32_t usb_fd, int32_t vendor_id, int32_t product_id)
     rtlsdr_dev_t *rtl_dev = NULL;
     r = rtlsdr_open_fd(&rtl_dev, ctx, devh);
     if (r < 0) {
-        /* rtlsdr_open_fd() já fecha devh/ctx internamente no caminho de
-         * erro (mesmo cleanup de rtlsdr_open() original) — não repetir
-         * aqui, senão é double-close/use-after-free. */
-        LOGE("rtlsdr_open_fd falhou: %d", r);
+        /* rtlsdr_open_fd() already closes devh/ctx internally on the
+         * error path (same cleanup as the original rtlsdr_open()) — don't
+         * repeat it here, or it's a double-close/use-after-free. */
+        LOGE("rtlsdr_open_fd failed: %d", r);
         pthread_mutex_unlock(&g_state.lock);
         return SHIM_ERR_RTLSDR_INIT_FAILED;
     }
 
     if (ring_buffer_init(&g_state.iq_ring, IQ_RING_CAPACITY) != 0) {
-        LOGE("ring_buffer_init (IQ) falhou");
-        rtlsdr_close(rtl_dev); /* fecha devh + ctx + libera dev internamente */
+        LOGE("ring_buffer_init (IQ) failed");
+        rtlsdr_close(rtl_dev); /* closes devh + ctx + frees dev internally */
         pthread_mutex_unlock(&g_state.lock);
         return SHIM_ERR_RTLSDR_INIT_FAILED;
     }
     if (ring_buffer_init(&g_state.pcm_ring, PCM_RING_CAPACITY) != 0) {
-        LOGE("ring_buffer_init (PCM) falhou");
+        LOGE("ring_buffer_init (PCM) failed");
         ring_buffer_destroy(&g_state.iq_ring);
         rtlsdr_close(rtl_dev);
         pthread_mutex_unlock(&g_state.lock);
@@ -625,21 +626,21 @@ int32_t shim_open_with_fd(int32_t usb_fd, int32_t vendor_id, int32_t product_id)
 
     rtlsdr_set_sample_rate(rtl_dev, DEFAULT_SAMPLE_RATE_HZ);
     rtlsdr_set_center_freq(rtl_dev, DEFAULT_FREQUENCY_HZ);
-    rtlsdr_set_tuner_gain_mode(rtl_dev, 0); /* AGC automático por padrão até o M4 */
+    rtlsdr_set_tuner_gain_mode(rtl_dev, 0); /* automatic AGC by default until M4 */
 
     atomic_store(&g_state.is_open, 1);
     pthread_mutex_unlock(&g_state.lock);
 
-    LOGI("Dongle aberto com sucesso via fd %d", usb_fd);
+    LOGI("Dongle opened successfully via fd %d", usb_fd);
     return SHIM_OK;
 }
 
-/* Fecha e finaliza (header WAV corrigido) uma gravação em andamento, se
- * houver. Usada tanto por shim_stop_recording() quanto por
- * shim_stop_streaming()/shim_close() — parar o streaming não pode deixar
- * um WAV com tamanhos zerados pendurado nem a flag recording_active presa
- * em 1 (o que travaria uma tentativa futura de shim_start_recording).
- * Retorna 1 se havia gravação ativa (e foi finalizada), 0 caso contrário. */
+/* Closes and finalizes (fixed-up WAV header) an in-progress recording, if
+ * any. Used both by shim_stop_recording() and by
+ * shim_stop_streaming()/shim_close() — stopping streaming must not leave
+ * a WAV with zeroed sizes behind, nor the recording_active flag stuck at
+ * 1 (which would block a future shim_start_recording attempt).
+ * Returns 1 if a recording was active (and was finalized), 0 otherwise. */
 static int stop_recording_if_active(void) {
     pthread_mutex_lock(&g_state.record_lock);
     if (!atomic_load(&g_state.recording_active)) {
@@ -651,7 +652,7 @@ static int stop_recording_if_active(void) {
     atomic_store(&g_state.recording_active, 0);
     pthread_mutex_unlock(&g_state.record_lock);
 
-    wav_writer_close(writer); /* fora do lock — fseek/fclose não precisa bloquear a dsp_thread */
+    wav_writer_close(writer); /* outside the lock — fseek/fclose doesn't need to block dsp_thread */
     return 1;
 }
 
@@ -692,7 +693,7 @@ int32_t shim_close(void) {
         return SHIM_ERR_NOT_OPEN;
     }
 
-    rtlsdr_close(g_state.rtl_dev); /* fecha devh + ctx + libera dev internamente */
+    rtlsdr_close(g_state.rtl_dev); /* closes devh + ctx + frees dev internally */
     ring_buffer_destroy(&g_state.iq_ring);
     ring_buffer_destroy(&g_state.pcm_ring);
 
@@ -702,7 +703,7 @@ int32_t shim_close(void) {
     atomic_store(&g_state.is_open, 0);
 
     pthread_mutex_unlock(&g_state.lock);
-    LOGI("Dongle fechado");
+    LOGI("Dongle closed");
     return SHIM_OK;
 }
 
@@ -773,7 +774,7 @@ int32_t shim_set_gain_tenth_db(int32_t gain_tenths_db) {
         pthread_mutex_unlock(&g_state.lock);
         return SHIM_ERR_NOT_OPEN;
     }
-    /* Definir um ganho específico só faz sentido em modo manual. */
+    /* Setting a specific gain only makes sense in manual mode. */
     rtlsdr_set_tuner_gain_mode(g_state.rtl_dev, 1);
     int r = rtlsdr_set_tuner_gain(g_state.rtl_dev, gain_tenths_db);
     pthread_mutex_unlock(&g_state.lock);
@@ -877,21 +878,21 @@ int32_t shim_start_streaming(void) {
     atomic_store(&g_state.spectrum_valid, 0);
     atomic_store(&g_state.stop_requested, 0);
 
-    /* Descarta PI/PS/RadioText de uma sessão anterior — não deveria
-     * sobreviver a um stop/start (troca de estação, por exemplo). */
+    /* Discards PI/PS/RadioText from a previous session — it shouldn't
+     * survive a stop/start (switching stations, for example). */
     pthread_mutex_lock(&g_state.rds_lock);
     memset(&g_state.rds_snapshot, 0, sizeof(g_state.rds_snapshot));
     pthread_mutex_unlock(&g_state.rds_lock);
 
     int r = pthread_create(&g_state.dsp_thread, NULL, dsp_thread_main, NULL);
     if (r != 0) {
-        LOGE("Falha ao criar dsp_thread: %d", r);
+        LOGE("Failed to create dsp_thread: %d", r);
         pthread_mutex_unlock(&g_state.lock);
         return SHIM_ERR_THREAD_FAILED;
     }
     r = pthread_create(&g_state.usb_thread, NULL, usb_thread_main, NULL);
     if (r != 0) {
-        LOGE("Falha ao criar usb_thread: %d", r);
+        LOGE("Failed to create usb_thread: %d", r);
         atomic_store(&g_state.stop_requested, 1);
         pthread_join(g_state.dsp_thread, NULL);
         pthread_mutex_unlock(&g_state.lock);
@@ -934,7 +935,7 @@ int32_t shim_get_spectrum_db(float *out_mag_db, int32_t num_bins) {
     if (num_bins == SPECTRUM_FFT_SIZE) {
         memcpy(out_mag_db, g_state.spectrum_snapshot, sizeof(float) * (size_t)num_bins);
     } else {
-        /* downsample por média simples (bin-averaging) pro num_bins pedido */
+        /* downsample by simple bin-averaging to the requested num_bins */
         for (int32_t i = 0; i < num_bins; i++) {
             int start = (int)((int64_t)i * SPECTRUM_FFT_SIZE / num_bins);
             int end = (int)((int64_t)(i + 1) * SPECTRUM_FFT_SIZE / num_bins);
@@ -968,13 +969,13 @@ int32_t shim_start_recording(const char *file_path) {
         return SHIM_ERR_RECORDING_ACTIVE;
     }
 
-    /* Canal atual (1 mono NFM/AM, 2 estéreo WFM — sempre 2 em WFM mesmo
-     * sem lock de piloto, ver audio_channel_count em dsp_thread_main) a
-     * AUDIO_TARGET_HZ, o mesmo formato do pcm_out que a dsp_thread já está
-     * produzindo. Consistente com o resto da gravação porque a UI
-     * (device_screen.dart) sempre para uma gravação em andamento antes de
-     * trocar de modo — não fica gravando com o canal errado a meio de uma
-     * troca WFM<->NFM/AM. */
+    /* Current channel count (1 mono NFM/AM, 2 stereo WFM — always 2 in
+     * WFM even without pilot lock, see audio_channel_count in
+     * dsp_thread_main) at AUDIO_TARGET_HZ, the same format as the pcm_out
+     * dsp_thread is already producing. Consistent with the rest of
+     * recording because the UI (device_screen.dart) always stops an
+     * in-progress recording before switching modes — it never keeps
+     * recording with the wrong channel count mid WFM<->NFM/AM switch. */
     int channels = atomic_load_explicit(&g_state.audio_channel_count, memory_order_relaxed);
     if (channels != 1 && channels != 2) {
         channels = 1;
@@ -982,7 +983,7 @@ int32_t shim_start_recording(const char *file_path) {
     wav_writer_t *writer = wav_writer_open(file_path, AUDIO_TARGET_HZ, channels);
     if (!writer) {
         pthread_mutex_unlock(&g_state.record_lock);
-        LOGE("shim_start_recording: falha ao abrir '%s'", file_path);
+        LOGE("shim_start_recording: failed to open '%s'", file_path);
         return SHIM_ERR_RECORDING_OPEN_FAILED;
     }
 

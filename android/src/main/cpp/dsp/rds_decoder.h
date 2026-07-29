@@ -9,47 +9,45 @@ extern "C" {
 #endif
 
 /*
- * Decodificador RDS (RBDS): downconversão coerente do subportador de
- * 57kHz (3ª harmônica do piloto de 19kHz, reaproveitando a mesma PLL do
- * estéreo — ver dsp/fm_stereo_pilot.h) + decimação, recuperação de clock
- * de símbolo (Gardner) na taxa de chip biphase (2375Hz = 2x a taxa de bit
- * de 1187.5Hz), loop de Costas BPSK pra corrigir rotação de fase residual,
- * combinação de par biphase + decodificação diferencial -> bitstream,
- * sincronismo de bloco de 26 bits (CRC/offset words A/B/C/C'/D) e parsing
- * de grupo (PI, PTY, TP, TA, PS via grupo 0A, RadioText via grupo 2A/2B).
+ * RDS (RBDS) decoder: coherent downconversion of the 57kHz subcarrier
+ * (3rd harmonic of the 19kHz pilot, reusing the same PLL as stereo — see
+ * dsp/fm_stereo_pilot.h) + decimation, symbol clock recovery (Gardner) at
+ * the biphase chip rate (2375Hz = 2x the 1187.5Hz bit rate), BPSK Costas
+ * loop to correct residual phase rotation, biphase pair combining +
+ * differential decoding -> bitstream, 26-bit block sync (CRC/offset words
+ * A/B/C/C'/D) and group parsing (PI, PTY, TP, TA, PS via group 0A,
+ * RadioText via group 2A/2B).
  *
- * Constantes verificadas contra uma implementação de referência de código
- * aberto ativamente mantida (redsea, github.com/windytan/redsea — MIT):
- * o polinômio gerador do CRC, os 5 valores de offset word/síndrome e a
- * matriz de verificação de paridade de 26 linhas foram conferidos byte a
- * byte contra o código-fonte de lá (não confiados de memória) — ver
- * RDS_PARITY_CHECK_MATRIX/rds_offset_for_syndrome em rds_decoder.c. O
- * restante (front-end de DSP: downconversão, Gardner, Costas, combinação
- * biphase) é uma implementação própria, mais simples que a de referências
- * como redsea (que usa liquid-dsp e reamostragem fracionária mais
- * sofisticada) — ver AVISO abaixo.
+ * Constants verified against an actively maintained open-source reference
+ * implementation (redsea, github.com/windytan/redsea — MIT): the CRC
+ * generator polynomial, the 5 offset word/syndrome values, and the 26-row
+ * parity check matrix were checked byte for byte against that source (not
+ * trusted from memory) — see RDS_PARITY_CHECK_MATRIX/rds_offset_for_syndrome
+ * in rds_decoder.c. The rest (DSP front-end: downconversion, Gardner,
+ * Costas, biphase combining) is an original implementation, simpler than
+ * references like redsea (which uses liquid-dsp and more sophisticated
+ * fractional resampling) — see WARNING below.
  *
- * AVISO (não validado em hardware real — sem dongle disponível no ambiente
- * de desenvolvimento): esta é a peça de maior risco de todo o projeto.
- * Simplificações assumidas, cada uma um ponto de falha em potencial:
- *   - Gardner com interpolação linear de 2 pontos e uma aproximação pro
- *     "mid sample" (ponto médio entre os dois últimos chips decididos, em
- *     vez de uma interpolação independente a -sps/2) — válida perto do
- *     lock, mas menos precisa que uma implementação de referência.
- *   - Aquisição de sincronismo de bloco ancorada só no offset A (exige a
- *     sequência A->B confirmada a +26 bits) em vez de buscar os 5 offsets
- *     em paralelo — mais simples, um pouco mais lenta pra travar.
- *   - Ambiguidade de qual chip do par biphase vem "primeiro": corrigida
- *     por um fallback (alterna a paridade assumida se ficar muito tempo
- *     sem travar sincronismo de bloco), não resolvida analiticamente.
- *   - Sem correção de erro por burst (capacidade de correção do CRC) —
- *     grupos com erro são só descartados.
- *   - Conjunto de caracteres RDS (G0/G1/G2) não mapeado — PS/RadioText são
- *     armazenados como bytes crus, corretos pra estações que só usam
- *     ASCII básico (a maioria), não pros caracteres especiais da tabela
- *     RDS completa.
- * Ganhos de loop (Gardner, Costas) e o corte do filtro de 57kHz são
- * estimativas de partida, mesma categoria de aviso que dsp/fm_stereo_pilot.h.
+ * WARNING (not validated on real hardware — no dongle available in the
+ * development environment): this is the highest-risk piece of the whole
+ * project. Simplifications assumed, each a potential point of failure:
+ *   - Gardner with 2-point linear interpolation and an approximation for
+ *     the "mid sample" (midpoint between the last two decided chips,
+ *     instead of an independent interpolation at -sps/2) — valid near
+ *     lock, but less accurate than a reference implementation.
+ *   - Block sync acquisition anchored only on offset A (requires the A->B
+ *     sequence confirmed at +26 bits) instead of searching all 5 offsets
+ *     in parallel — simpler, somewhat slower to lock.
+ *   - Ambiguity of which chip of the biphase pair comes "first": corrected
+ *     by a fallback (flips the assumed parity if it goes too long without
+ *     locking block sync), not resolved analytically.
+ *   - No burst error correction (CRC's correction capability) — groups
+ *     with an error are simply discarded.
+ *   - RDS character set (G0/G1/G2) not mapped — PS/RadioText are stored as
+ *     raw bytes, correct for stations that only use basic ASCII (most of
+ *     them), not for the special characters in the full RDS table.
+ * Loop gains (Gardner, Costas) and the 57kHz filter cutoff are
+ * starting-point estimates, same warning category as dsp/fm_stereo_pilot.h.
  */
 
 typedef struct rds_decoder rds_decoder_t;
@@ -57,12 +55,12 @@ typedef struct rds_decoder rds_decoder_t;
 rds_decoder_t *rds_decoder_create(float mpx_sample_rate_hz);
 void rds_decoder_destroy(rds_decoder_t *d);
 
-/* Processa `count` amostras do MPX cru (audio_pre, mesmo buffer que
- * alimenta fm_stereo_pilot_process) junto com as referências de 3ª
- * harmônica cos3wt/sin3wt (mesma PLL, mesmo tamanho `count` — ver
- * fm_stereo_pilot_process). Só deve ser chamado quando o piloto estéreo
- * está travado (RDS é coerente com o piloto por definição do padrão; sem
- * lock não há referência de fase válida pra demodular o RDS). */
+/* Processes `count` samples of the raw MPX (audio_pre, same buffer that
+ * feeds fm_stereo_pilot_process) together with the 3rd-harmonic references
+ * cos3wt/sin3wt (same PLL, same `count` size — see
+ * fm_stereo_pilot_process). Should only be called when the stereo pilot is
+ * locked (RDS is coherent with the pilot by definition of the standard;
+ * without lock there is no valid phase reference to demodulate RDS). */
 void rds_decoder_process(rds_decoder_t *d, const float *mpx, const float *cos3wt, const float *sin3wt, size_t count);
 
 typedef struct {
@@ -72,16 +70,16 @@ typedef struct {
     int32_t ta;
     char ps[9];         /* 8 chars + NUL */
     char radiotext[65]; /* 64 chars + NUL */
-    uint32_t generation; /* incrementa sempre que ps/radiotext mudam de fato */
+    uint32_t generation; /* incremented whenever ps/radiotext actually change */
     uint32_t valid_group_count;
     int32_t sync_locked;
 } rds_snapshot_t;
 
-/* Cópia thread-safe do estado decodificado atual (chamador não precisa
- * lidar com locks internos do decodificador — a sincronização com o
- * shim_rds_info_t exposto ao Dart é feita em rtlsdr_shim.c, mas esta
- * função em si é segura pra chamar da mesma thread que roda
- * rds_decoder_process, que é o único uso previsto). */
+/* Thread-safe copy of the current decoded state (caller doesn't need to
+ * deal with the decoder's internal locks — synchronization with the
+ * shim_rds_info_t exposed to Dart is done in rtlsdr_shim.c, but this
+ * function itself is safe to call from the same thread that runs
+ * rds_decoder_process, which is the only intended use). */
 void rds_decoder_snapshot(const rds_decoder_t *d, rds_snapshot_t *out);
 
 #ifdef __cplusplus

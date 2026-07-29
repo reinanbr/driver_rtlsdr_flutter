@@ -20,8 +20,8 @@ int fir_decimator_init(fir_decimator_t *d, int decim_factor, int num_taps, float
     d->decim_factor = decim_factor;
     d->phase = 0;
 
-    /* Sinc passa-baixa com janela de Hamming, ganho DC normalizado a 1.0 —
-     * ver rationale de decimação em 2 estágios em docs/native_build.md. */
+    /* Hamming-windowed low-pass sinc, DC gain normalized to 1.0 — see the
+     * rationale for two-stage decimation in docs/native_build.md. */
     int m = num_taps - 1;
     float sum = 0.0f;
     for (int n = 0; n < num_taps; n++) {

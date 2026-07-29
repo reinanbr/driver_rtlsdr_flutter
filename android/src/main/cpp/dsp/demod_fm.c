@@ -6,7 +6,7 @@
 
 void fm_demod_init(fm_demod_t *d, float sample_rate_hz, float max_deviation_hz, float deemphasis_tau_us) {
     d->prev_i = 0.0f;
-    d->prev_q = 1.0f; /* evita atan2(0,0) degenerado na primeira amostra */
+    d->prev_q = 1.0f; /* avoids a degenerate atan2(0,0) on the first sample */
     d->deemph_state = 0.0f;
 
     if (deemphasis_tau_us > 0.0f) {
@@ -19,8 +19,8 @@ void fm_demod_init(fm_demod_t *d, float sample_rate_hz, float max_deviation_hz, 
         d->deemphasis_enabled = 0;
     }
 
-    /* Escala a saída do discriminador (radianos/amostra) pra que o desvio
-     * máximo mapeie pra +-1.0 em amplitude de áudio. */
+    /* Scales the discriminator output (radians/sample) so that the
+     * maximum deviation maps to +-1.0 audio amplitude. */
     d->gain = sample_rate_hz / (2.0f * FM_PI * max_deviation_hz);
 }
 
@@ -36,7 +36,7 @@ void fm_demod_process(fm_demod_t *d, const float *in_i, const float *in_q, size_
         float i = in_i[n];
         float q = in_q[n];
 
-        /* discriminador por produto conjugado: d[n] = s[n] * conj(s[n-1]) */
+        /* conjugate-product discriminator: d[n] = s[n] * conj(s[n-1]) */
         float di = i * prev_i + q * prev_q;
         float dq = q * prev_i - i * prev_q;
         float raw = atan2f(dq, di) * gain;

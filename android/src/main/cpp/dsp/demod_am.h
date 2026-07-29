@@ -7,9 +7,9 @@
 extern "C" {
 #endif
 
-/* Detecção de envelope (AM) + bloqueio de DC — o envelope de um sinal AM
- * carrega um offset DC grande (proporcional à portadora) que precisa ser
- * removido antes de virar áudio. */
+/* Envelope detection (AM) + DC blocking — an AM signal's envelope carries
+ * a large DC offset (proportional to the carrier) that must be removed
+ * before it becomes audio. */
 typedef struct {
     float dc_prev_in;
     float dc_prev_out;

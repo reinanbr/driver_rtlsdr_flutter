@@ -24,10 +24,11 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
-            <!-- Auto-abre este app quando um dongle RTL-SDR conhecido é
-                 plugado. @xml/device_filter vem do próprio pacote
-                 driver_rtlsdr (recurso de biblioteca mesclado no build) —
-                 ver README.md do plugin, seção "Integrando num app novo". -->
+            <!-- Auto-opens this app when a known RTL-SDR dongle is plugged
+                 in. @xml/device_filter comes from the driver_rtlsdr
+                 package itself (a library resource merged into the build)
+                 — see the plugin's README.md, "Integrating into a new
+                 app" section. -->
             <intent-filter>
                 <action android:name="android.hardware.usb.action.USB_DEVICE_ATTACHED" />
             </intent-filter>
