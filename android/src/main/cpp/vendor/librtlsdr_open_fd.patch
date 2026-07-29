@@ -1,0 +1,244 @@
+--- librtlsdr-pristine/src/librtlsdr.c	2024-03-20 19:12:16.000000000 -0300
++++ librtlsdr-src/src/librtlsdr.c	2026-07-28 22:44:31.307772004 -0300
+@@ -3094,42 +3094,16 @@
+ 	return 0;
+ }
+ 
+-int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
++static rtlsdr_dev_t *rtlsdr_open_alloc_dev(void)
+ {
+-	int r;
+-	int i;
+-	libusb_device **list;
+-	rtlsdr_dev_t *dev = NULL;
+-	libusb_device *device = NULL;
+-	uint32_t device_count = 0;
+-	struct libusb_device_descriptor dd;
+-	uint8_t reg;
+-	ssize_t cnt;
+-
+-	#if LOG_API_CALLS
+-	fprintf(stderr, "LOG: rtlsdr_open(%u)\n", (unsigned)index);
+-	#endif
+-
+-	#ifdef _ENABLE_RPC
+-	if (rtlsdr_rpc_is_enabled())
+-	{
+-	  return rtlsdr_rpc_open((void**)out_dev, index);
+-	}
+-	#endif
++	rtlsdr_dev_t *dev;
+ 
+ 	dev = malloc(sizeof(rtlsdr_dev_t));
+ 	if (NULL == dev)
+-		return -ENOMEM;
++		return NULL;
+ 
+ 	memset(dev, 0, sizeof(rtlsdr_dev_t));
+ 	memcpy(dev->fir, fir_default, sizeof(fir_default));
+-
+-	r = libusb_init(&dev->ctx);
+-	if(r < 0){
+-		free(dev);
+-		return -1;
+-	}
+-
+ 	pthread_mutexattr_init(&dev->cs_mutex_attr);
+ 	pthread_mutexattr_settype(&dev->cs_mutex_attr, PTHREAD_MUTEX_RECURSIVE);
+ 	pthread_mutex_init(&dev->cs_mutex, &dev->cs_mutex_attr);
+@@ -3166,61 +3140,35 @@
+ 	dev->override_if_flag = 0;
+ #endif
+ 
+-	dev->dev_num = index;
+-	dev->dev_lost = 1;
+-
+-	cnt = libusb_get_device_list(dev->ctx, &list);
+-
+-	for (i = 0; i < cnt; i++) {
+-		device = list[i];
+-
+-		libusb_get_device_descriptor(list[i], &dd);
+-
+-		if (find_known_device(dd.idVendor, dd.idProduct)) {
+-			device_count++;
+-		}
+-
+-		if (index == device_count - 1)
+-			break;
+-
+-		device = NULL;
+-	}
+-
+-	if (!device) {
+-		r = -1;
+-		goto err;
+-	}
+-
+-	r = libusb_open(device, &dev->devh);
+-	if (r < 0) {
+-		libusb_free_device_list(list, 1);
+-		fprintf(stderr, "usb_open error %d\n", r);
+-		if(r == LIBUSB_ERROR_ACCESS)
+-			fprintf(stderr, "Please fix the device permissions, e.g. "
+-			"by installing the udev rules file rtl-sdr.rules\n");
+-		goto err;
+-	}
++	return dev;
++}
+ 
+-	libusb_free_device_list(list, 1);
+ 
+-	if (libusb_kernel_driver_active(dev->devh, 0) == 1) {
+-		dev->driver_active = 1;
++static int rtlsdr_open_finish(rtlsdr_dev_t **out_dev, rtlsdr_dev_t *dev, int skip_kernel_driver_check)
++{
++	int r;
++	uint8_t reg;
+ 
+-#ifdef DETACH_KERNEL_DRIVER
+-		if (!libusb_detach_kernel_driver(dev->devh, 0)) {
+-			fprintf(stderr, "Detached kernel driver\n");
+-		} else {
+-			fprintf(stderr, "Detaching kernel driver failed!");
+-			goto err;
++	if (!skip_kernel_driver_check) {
++		if (libusb_kernel_driver_active(dev->devh, 0) == 1) {
++			dev->driver_active = 1;
++
++	#ifdef DETACH_KERNEL_DRIVER
++			if (!libusb_detach_kernel_driver(dev->devh, 0)) {
++				fprintf(stderr, "Detached kernel driver\n");
++			} else {
++				fprintf(stderr, "Detaching kernel driver failed!");
++				goto err;
++			}
++	#else
++			fprintf(stderr, "\nKernel driver is active, or device is "
++					"claimed by second instance of librtlsdr."
++					"\nIn the first case, please either detach"
++					" or blacklist the kernel module\n"
++					"(dvb_usb_rtl28xxu), or enable automatic"
++					" detaching at compile time.\n\n");
++	#endif
+ 		}
+-#else
+-		fprintf(stderr, "\nKernel driver is active, or device is "
+-				"claimed by second instance of librtlsdr."
+-				"\nIn the first case, please either detach"
+-				" or blacklist the kernel module\n"
+-				"(dvb_usb_rtl28xxu), or enable automatic"
+-				" detaching at compile time.\n\n");
+-#endif
+ 	}
+ 
+ 	r = libusb_claim_interface(dev->devh, 0);
+@@ -3445,6 +3393,108 @@
+ 	return r;
+ }
+ 
++int rtlsdr_open(rtlsdr_dev_t **out_dev, uint32_t index)
++{
++	int r;
++	int i;
++	libusb_device **list;
++	rtlsdr_dev_t *dev = NULL;
++	libusb_device *device = NULL;
++	uint32_t device_count = 0;
++	struct libusb_device_descriptor dd;
++	ssize_t cnt;
++
++#if LOG_API_CALLS
++	fprintf(stderr, "LOG: rtlsdr_open(%u)\n", (unsigned)index);
++#endif
++
++#ifdef _ENABLE_RPC
++	if (rtlsdr_rpc_is_enabled())
++	{
++	  return rtlsdr_rpc_open((void**)out_dev, index);
++	}
++#endif
++
++	dev = rtlsdr_open_alloc_dev();
++	if (NULL == dev)
++		return -ENOMEM;
++
++	r = libusb_init(&dev->ctx);
++	if (r < 0) {
++		free(dev);
++		return -1;
++	}
++
++	dev->dev_num = index;
++	dev->dev_lost = 1;
++
++	cnt = libusb_get_device_list(dev->ctx, &list);
++
++	for (i = 0; i < cnt; i++) {
++		device = list[i];
++
++		libusb_get_device_descriptor(list[i], &dd);
++
++		if (find_known_device(dd.idVendor, dd.idProduct)) {
++			device_count++;
++		}
++
++		if (index == device_count - 1)
++			break;
++
++		device = NULL;
++	}
++
++	if (!device) {
++		libusb_free_device_list(list, 1);
++		libusb_exit(dev->ctx);
++		free(dev);
++		return -1;
++	}
++
++	r = libusb_open(device, &dev->devh);
++	if (r < 0) {
++		libusb_free_device_list(list, 1);
++		fprintf(stderr, "usb_open error %d\n", r);
++		if(r == LIBUSB_ERROR_ACCESS)
++			fprintf(stderr, "Please fix the device permissions, e.g. "
++			"by installing the udev rules file rtl-sdr.rules\n");
++		libusb_exit(dev->ctx);
++		free(dev);
++		return r;
++	}
++
++	libusb_free_device_list(list, 1);
++
++	return rtlsdr_open_finish(out_dev, dev, /*skip_kernel_driver_check=*/0);
++}
++
++/* Android: open using a libusb_device_handle already obtained via
++ * libusb_wrap_sys_device() over a file descriptor that Android's
++ * UsbManager/UsbDeviceConnection (Java) opened and granted permission for.
++ * Skips libusb device enumeration entirely, which requires access to
++ * /dev/bus/usb and is unavailable on unrooted Android — this is the
++ * pattern documented in libusb's own android/README. */
++RTLSDR_API int rtlsdr_open_fd(rtlsdr_dev_t **out_dev, libusb_context *ctx, libusb_device_handle *devh)
++{
++	rtlsdr_dev_t *dev = NULL;
++
++	if (!ctx || !devh || !out_dev)
++		return -EINVAL;
++
++	dev = rtlsdr_open_alloc_dev();
++	if (NULL == dev)
++		return -ENOMEM;
++
++	dev->ctx = ctx;
++	dev->devh = devh;
++	dev->dev_num = 0;
++	dev->dev_lost = 1;
++
++	return rtlsdr_open_finish(out_dev, dev, /*skip_kernel_driver_check=*/1);
++}
++
++
+ int rtlsdr_close(rtlsdr_dev_t *dev)
+ {
+ 	#if LOG_API_CALLS

@@ -1,0 +1,50 @@
+plugins {
+    id("com.android.application")
+    // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
+    id("dev.flutter.flutter-gradle-plugin")
+}
+
+android {
+    namespace = "com.rtlsdrmobile.driver_rtlsdr_example"
+    compileSdk = flutter.compileSdkVersion
+    // Pinada — mesma versão que o módulo do plugin (android/build.gradle.kts)
+    // usa; deixar cada módulo resolver a sua própria via flutter.ndkVersion
+    // pode divergir e confundir o build nativo.
+    ndkVersion = "28.2.13676358"
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    defaultConfig {
+        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        applicationId = "com.rtlsdrmobile.driver_rtlsdr_example"
+        // You can update the following values to match your application needs.
+        // For more information, see: https://flutter.dev/to/review-gradle-config.
+        // 26: exigido pelo plugin driver_rtlsdr (caminho de baixa latência
+        // do Oboe/AAudio).
+        minSdk = maxOf(flutter.minSdkVersion, 26)
+        targetSdk = flutter.targetSdkVersion
+        versionCode = flutter.versionCode
+        versionName = flutter.versionName
+    }
+
+    buildTypes {
+        release {
+            // TODO: Add your own signing config for the release build.
+            // Signing with the debug keys for now, so `flutter run --release` works.
+            signingConfig = signingConfigs.getByName("debug")
+        }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17
+    }
+}
+
+flutter {
+    source = "../.."
+}
