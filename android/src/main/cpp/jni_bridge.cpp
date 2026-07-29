@@ -9,9 +9,21 @@
  * funções shim_* — ver rtlsdr_shim.h.
  *
  * Usa RegisterNatives em JNI_OnLoad em vez de depender do name-mangling
- * estático (Java_com_..._UsbBridge_nativeXxx), que fica frágil com o
- * underscore no nome do pacote "driver_rtlsdr" (underscore vira "_1" no
+ * estático (Java_com_..._DriverRtlsdrPlugin_nativeXxx), que fica frágil com
+ * o underscore no nome do pacote "driver_rtlsdr" (underscore vira "_1" no
  * mangling — fácil de errar na mão).
+ *
+ * As 3 funções nativas (nativeOpenWithFd/nativeClose/nativeIsOpen) são
+ * declaradas como `external fun` em DriverRtlsdrPlugin.kt — o nome da
+ * classe abaixo (FindClass) tem que bater exatamente com isso. Divergir
+ * aqui não dá erro de compilação (é uma string, não checada em tempo de
+ * build) — dá um crash nativo em runtime assim que o app carrega a lib
+ * (FindClass lança ClassNotFoundException; qualquer chamada JNI seguinte
+ * sem limpar essa exceção pendente vira "JNI DETECTED ERROR" fatal em modo
+ * JNI estrito). Foi exatamente esse bug que apareceu ao extrair este
+ * plugin do app original (lá a classe se chamava UsbBridge) — coberto
+ * agora por env->ExceptionClear() defensivo abaixo, mas o nome ainda
+ * precisa bater.
  */
 
 namespace {
@@ -49,8 +61,16 @@ extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *reserved) {
         return JNI_ERR;
     }
 
-    jclass clazz = env->FindClass("com/rtlsdrmobile/driver_rtlsdr/UsbBridge");
+    jclass clazz = env->FindClass("com/rtlsdrmobile/driver_rtlsdr/DriverRtlsdrPlugin");
     if (clazz == nullptr) {
+        // FindClass falhando deixa uma ClassNotFoundException PENDENTE no
+        // env — qualquer chamada JNI subsequente sem limpar isso primeiro é
+        // fatal em modo JNI estrito ("JNI DETECTED ERROR ... NewGlobalRef
+        // called with pending exception"), mesmo que o chamador (a JVM, ao
+        // processar o retorno de JNI_OnLoad) não tenha nada a ver com o
+        // FindClass em si. Limpa aqui pra falhar de forma previsível
+        // (JNI_ERR, sem crash) em vez de propagar a exceção pendente.
+        env->ExceptionClear();
         return JNI_ERR;
     }
 
