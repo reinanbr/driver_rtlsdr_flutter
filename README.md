@@ -1,5 +1,8 @@
 # driver_rtlsdr
 
+[![pub package](https://img.shields.io/pub/v/driver_rtlsdr.svg)](https://pub.dev/packages/driver_rtlsdr)
+[![pub points](https://img.shields.io/pub/points/driver_rtlsdr)](https://pub.dev/packages/driver_rtlsdr/score)
+[![pub likes](https://img.shields.io/pub/likes/driver_rtlsdr)](https://pub.dev/packages/driver_rtlsdr/score)
 [![CI](https://github.com/reinanbr/driver_rtlsdr_flutter/actions/workflows/ci.yml/badge.svg)](https://github.com/reinanbr/driver_rtlsdr_flutter/actions/workflows/ci.yml)
 [![License: GPL v2 or later](https://img.shields.io/badge/license-GPLv2--or--later-blue.svg)](LICENSE)
 
