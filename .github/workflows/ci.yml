@@ -4,16 +4,23 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
-  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   NDK_VERSION: "28.2.13676358"
   CMAKE_VERSION: "3.22.1"
 
 jobs:
-  analyze-and-test:
-    name: Analyze & test (Dart)
+  # ---------------------------------------------------------------------------
+  # Job 1 - static analysis + pure Dart unit/widget tests (host).
+  # No Android build involved, so this is fast and runs on every push/PR
+  # before we spend time on the emulator matrix below.
+  # ---------------------------------------------------------------------------
+  analyze-and-unit:
+    name: analyze + unit (host)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,10 +37,10 @@ jobs:
         run: dart format --output=none --set-exit-if-changed .
 
       - name: Analyze plugin
-        run: flutter analyze
+        run: flutter analyze --fatal-infos
 
       - name: Run plugin unit tests
-        run: flutter test --coverage
+        run: flutter test # test/: DemodMode, UsbState, FFI struct layout
 
       - name: Install example app dependencies
         working-directory: example
@@ -41,22 +48,41 @@ jobs:
 
       - name: Analyze example app
         working-directory: example
-        run: flutter analyze
+        run: flutter analyze --fatal-infos
 
-      - name: Run example app tests
+      - name: Run example app widget tests
         working-directory: example
         run: flutter test
 
-      - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage
-          path: coverage/lcov.info
-          if-no-files-found: ignore
-
-  build-android:
-    name: Build native Android core (example app)
-    runs-on: ubuntu-latest
+  # ---------------------------------------------------------------------------
+  # Job 2 - integration test on a REAL arm64-v8a emulator.
+  #
+  # Runs on macos-14 (Apple Silicon). On these runners the arm64-v8a system
+  # image runs NATIVE (no nested virtualization), so it exercises the same
+  # ABI that ships to actual phones, at full speed. A Linux runner could
+  # only accelerate x86_64, which is not the production ABI for this
+  # project — driver_rtlsdr is Android-only and arm64-v8a is what matters.
+  #
+  # Matrix is deliberately a spread of meaningful Android versions rather
+  # than every API level:
+  #   26 - floor (minSdk required by Oboe/AAudio's low-latency path)
+  #   29 - Android 10, scoped storage / background limits baseline
+  #   33 - Android 13, runtime permission model most devices run today
+  #   36 - latest stable (Android 16), also picks up 16 KB page size in the .so
+  #
+  # This validates that libnative_rtlsdr.so builds, links and LOADS on
+  # arm64-v8a across that spread, and that a real FFI round-trip works —
+  # see example/integration_test/plugin_integration_test.dart. No physical
+  # RTL-SDR dongle is involved or needed.
+  # ---------------------------------------------------------------------------
+  integration-arm64:
+    name: integration (API ${{ matrix.api-level }}, arm64-v8a)
+    needs: analyze-and-unit
+    runs-on: macos-14
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [26, 29, 33, 36]
     steps:
       - uses: actions/checkout@v4
 
@@ -70,27 +96,34 @@ jobs:
           channel: stable
           cache: true
 
-      # Validates that the native core (rtlsdr_shim.c, dsp/, vendor/) still
-      # compiles and links cleanly for every supported ABI — the same check
-      # described in README.md's "Tests" section for the example app.
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('android/**/*.gradle*', 'example/android/**/*.gradle*') }}
+          restore-keys: gradle-${{ runner.os }}-
+
       - name: Install Android NDK & CMake
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
             "ndk;${NDK_VERSION}" "cmake;${CMAKE_VERSION}" > /dev/null
 
-      - name: Install plugin dependencies
-        run: flutter pub get
-
       - name: Install example app dependencies
         working-directory: example
         run: flutter pub get
 
-      - name: Build debug APK
-        working-directory: example
-        run: flutter build apk --debug
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+      - name: Integration test on arm64-v8a emulator
+        uses: reactivecircus/android-emulator-runner@v2
         with:
-          name: driver_rtlsdr-example-debug-apk
-          path: example/build/app/outputs/flutter-apk/app-debug.apk
+          api-level: ${{ matrix.api-level }}
+          arch: arm64-v8a
+          target: google_apis
+          disable-animations: true
+          # If the arm64-v8a + google_apis combo is ever unavailable for a
+          # given API level, switch target to 'default' or adjust to the
+          # closest available arm64 image for that level.
+          script: |
+            cd example
+            flutter test integration_test

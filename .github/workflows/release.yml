@@ -85,3 +85,47 @@ jobs:
           name: driver_rtlsdr ${{ steps.package.outputs.version }}
           files: ${{ steps.package.outputs.zip_path }}
           generate_release_notes: true
+
+  # ---------------------------------------------------------------------------
+  # Publish to pub.dev once tests and the example app build have both passed.
+  #
+  # Uses pub.dev's "Automated publishing" (GitHub Actions OIDC) — no secrets
+  # stored in this repo. This only works once, on pub.dev, you:
+  #   1. Have published this package manually at least once (claims the name
+  #      under your account — `flutter pub publish` from a local machine).
+  #   2. On the package's pub.dev page -> Admin tab -> Automated publishing,
+  #      enable GitHub Actions publishing for repository
+  #      "reinanbr/driver_rtlsdr_flutter", workflow file "release.yml", and
+  #      (recommended) require the tag pattern "v{{version}}".
+  # Until that's configured, this job will fail at the `pub publish` step
+  # with an authentication error — the rest of the release is unaffected.
+  # ---------------------------------------------------------------------------
+  publish-pub-dev:
+    name: Publish to pub.dev
+    needs: build-and-release
+    if: github.repository == 'reinanbr/driver_rtlsdr_flutter'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # required for pub.dev's OIDC trusted publishing
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Verify pubspec.yaml version matches the pushed tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PUBSPEC_VERSION="$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')"
+          if [ "$TAG_VERSION" != "$PUBSPEC_VERSION" ]; then
+            echo "::error::Tag v$TAG_VERSION does not match pubspec.yaml version $PUBSPEC_VERSION - bump pubspec.yaml before tagging."
+            exit 1
+          fi
+
+      - run: flutter pub get
+
+      - name: Publish to pub.dev
+        run: flutter pub publish --force
