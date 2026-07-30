@@ -1,10 +1,11 @@
-## Unreleased
+## 0.0.2
 
 - Translated the entire codebase (comments, docs, log/error messages) from
   Portuguese to English in preparation for open-sourcing the project.
 - Added CI (`flutter analyze`/`flutter test` for the plugin and example
   app, plus a full native Android build) and a tag-triggered release
-  workflow that publishes a zipped, versioned build.
+  workflow that publishes a zipped, versioned build and auto-publishes to
+  pub.dev.
 - Added `CONTRIBUTING.md` and expanded Dart unit test coverage
   (`UsbState`/`UsbDeviceInfo`, `NativeLibrary`).
 
