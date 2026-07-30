@@ -1,4 +1,4 @@
-## Unreleased
+## 0.1.1
 
 - Example app: mode selector now covers all 5 `DemodMode` values (added
   USB/LSB), plus PCM and raw I/Q recording controls with live
