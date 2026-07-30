@@ -1,5 +1,7 @@
-## Unreleased
+## 0.1.0
 
+- Added a component-by-component reference doc (`docs/index.html`) for the
+  native C/C++ core and its Dart bindings.
 - Added SSB demodulation (`DemodMode.usb`/`.lsb`), phasing method — Hilbert
   transform on Q with a matched delay on I, so the unwanted sideband is
   actually rejected (`android/src/main/cpp/dsp/demod_ssb.c`). Squelch now

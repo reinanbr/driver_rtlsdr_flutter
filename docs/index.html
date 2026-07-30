@@ -1,0 +1,900 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>driver_rtlsdr — Native Core &amp; Dart Bindings Reference</title>
+<meta name="description" content="Component-by-component reference for driver_rtlsdr's native C/C++ core and its Dart FFI bindings." />
+<style>
+  :root {
+    --bg: #ffffff;
+    --bg-alt: #f6f7f9;
+    --fg: #1c1e21;
+    --fg-muted: #57606a;
+    --border: #d8dce1;
+    --accent: #0a5fb4;
+    --accent-bg: #e8f1fc;
+    --code-bg: #f0f2f5;
+    --warn-bg: #fff6e5;
+    --warn-border: #e8b73b;
+    --pill-c: #dbeafe;
+    --pill-c-fg: #1e4f9c;
+    --pill-dart: #dcf5e4;
+    --pill-dart-fg: #1a7a3f;
+    --pill-kotlin: #f3e5f9;
+    --pill-kotlin-fg: #7a3fa0;
+    --shadow: 0 1px 2px rgba(0,0,0,0.06);
+  }
+  :root[data-theme="dark"] {
+    --bg: #14171a;
+    --bg-alt: #1b1f23;
+    --fg: #e6e8eb;
+    --fg-muted: #9aa4af;
+    --border: #2c3238;
+    --accent: #6bb1ff;
+    --accent-bg: #16283b;
+    --code-bg: #1f242a;
+    --warn-bg: #2a230f;
+    --warn-border: #8a6a1f;
+    --pill-c: #16283b;
+    --pill-c-fg: #8ec1ff;
+    --pill-dart: #10291a;
+    --pill-dart-fg: #6fdb98;
+    --pill-kotlin: #26172e;
+    --pill-kotlin-fg: #d19ee8;
+    --shadow: none;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14171a;
+      --bg-alt: #1b1f23;
+      --fg: #e6e8eb;
+      --fg-muted: #9aa4af;
+      --border: #2c3238;
+      --accent: #6bb1ff;
+      --accent-bg: #16283b;
+      --code-bg: #1f242a;
+      --warn-bg: #2a230f;
+      --warn-border: #8a6a1f;
+      --pill-c: #16283b;
+      --pill-c-fg: #8ec1ff;
+      --pill-dart: #10291a;
+      --pill-dart-fg: #6fdb98;
+      --pill-kotlin: #26172e;
+      --pill-kotlin-fg: #d19ee8;
+      --shadow: none;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  code, pre, .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+  code {
+    background: var(--code-bg);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    font-size: 0.88em;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  pre code { background: none; padding: 0; }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    min-height: 100vh;
+  }
+  nav.sidebar {
+    border-right: 1px solid var(--border);
+    padding: 20px 16px 40px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    background: var(--bg-alt);
+  }
+  nav.sidebar .brand {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 4px;
+  }
+  nav.sidebar .brand-sub {
+    color: var(--fg-muted);
+    font-size: 12px;
+    margin-bottom: 18px;
+  }
+  nav.sidebar h4 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--fg-muted);
+    margin: 18px 0 6px;
+  }
+  nav.sidebar ul { list-style: none; margin: 0; padding: 0; }
+  nav.sidebar li { margin: 1px 0; }
+  nav.sidebar a {
+    display: block;
+    color: var(--fg);
+    padding: 5px 8px;
+    border-radius: 6px;
+    font-size: 13.5px;
+  }
+  nav.sidebar a:hover { background: var(--accent-bg); text-decoration: none; }
+
+  main {
+    padding: 40px clamp(20px, 5vw, 64px) 100px;
+    max-width: 900px;
+  }
+  header.hero { margin-bottom: 36px; }
+  header.hero h1 { font-size: 28px; margin: 0 0 8px; }
+  header.hero p { color: var(--fg-muted); font-size: 16px; max-width: 65ch; }
+
+  section { margin-bottom: 52px; scroll-margin-top: 20px; }
+  section > h2 {
+    font-size: 22px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 18px;
+  }
+  .component {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    margin-bottom: 20px;
+    background: var(--bg-alt);
+    box-shadow: var(--shadow);
+    scroll-margin-top: 20px;
+  }
+  .component h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .path {
+    display: block;
+    font-size: 12.5px;
+    color: var(--fg-muted);
+    margin-bottom: 10px;
+  }
+  .pill {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .pill.c { background: var(--pill-c); color: var(--pill-c-fg); }
+  .pill.dart { background: var(--pill-dart); color: var(--pill-dart-fg); }
+  .pill.kotlin { background: var(--pill-kotlin); color: var(--pill-kotlin-fg); }
+
+  .warn {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 13.5px;
+    margin-top: 12px;
+  }
+  .warn strong { display: inline; }
+
+  .maps-to {
+    margin-top: 12px;
+    font-size: 13.5px;
+    color: var(--fg-muted);
+  }
+  .maps-to a { font-weight: 600; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 12px 0; }
+  th, td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--bg-alt); }
+  .table-wrap { overflow-x: auto; }
+
+  .diagram {
+    white-space: pre;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  footer {
+    color: var(--fg-muted);
+    font-size: 12.5px;
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    margin-top: 60px;
+  }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.sidebar {
+      position: static;
+      height: auto;
+      border-right: none;
+      border-bottom: 1px solid var(--border);
+    }
+    main { padding: 28px 20px 80px; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="sidebar">
+    <div class="brand">driver_rtlsdr</div>
+    <div class="brand-sub">Native core &amp; Dart reference</div>
+
+    <h4>Overview</h4>
+    <ul>
+      <li><a href="#overview">What this document covers</a></li>
+      <li><a href="#pipeline">Signal pipeline</a></li>
+      <li><a href="#component-map">Component map</a></li>
+    </ul>
+
+    <h4>Native core (C/C++)</h4>
+    <ul>
+      <li><a href="#rtlsdr-shim">rtlsdr_shim.h / .c</a></li>
+      <li><a href="#ring-buffer">dsp/ring_buffer</a></li>
+      <li><a href="#fir-decimator">dsp/fir_decimator</a></li>
+      <li><a href="#demod-fm">dsp/demod_fm</a></li>
+      <li><a href="#demod-am">dsp/demod_am</a></li>
+      <li><a href="#demod-ssb">dsp/demod_ssb</a></li>
+      <li><a href="#fm-stereo-pilot">dsp/fm_stereo_pilot</a></li>
+      <li><a href="#rds-decoder">dsp/rds_decoder</a></li>
+      <li><a href="#deemphasis">dsp/deemphasis</a></li>
+      <li><a href="#spectrum-fft">dsp/spectrum_fft</a></li>
+      <li><a href="#wav-writer">dsp/wav_writer</a></li>
+      <li><a href="#iq-writer">dsp/iq_writer</a></li>
+      <li><a href="#audio-sink">audio/audio_sink*</a></li>
+      <li><a href="#jni-bridge">jni_bridge.cpp</a></li>
+      <li><a href="#vendor">vendor/ (libusb, librtlsdr, KissFFT)</a></li>
+    </ul>
+
+    <h4>Dart bindings</h4>
+    <ul>
+      <li><a href="#native-library">native_library.dart</a></li>
+      <li><a href="#native-bindings">native_bindings.dart</a></li>
+      <li><a href="#shim-types">shim_types.dart</a></li>
+      <li><a href="#demod-mode">demod_mode.dart</a></li>
+      <li><a href="#usb-state">usb_state.dart</a></li>
+      <li><a href="#usb-channel">usb_channel.dart</a></li>
+    </ul>
+
+    <h4>Kotlin bridge</h4>
+    <ul>
+      <li><a href="#driver-plugin">DriverRtlsdrPlugin.kt</a></li>
+      <li><a href="#usb-attach-receiver">UsbAttachReceiver.kt</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <h1>Native core &amp; Dart bindings reference</h1>
+      <p>
+        A component-by-component map of how <code>driver_rtlsdr</code> is built: every
+        native C/C++ file under <code>android/src/main/cpp/</code>, every Dart file
+        under <code>lib/src/</code>, and the two Kotlin files that bridge Android's USB
+        permission APIs to the native core. See <a href="../README.md">README.md</a> for
+        how to <em>use</em> the package — this document is about how it works internally.
+      </p>
+    </header>
+
+    <section id="overview">
+      <h2>What this document covers</h2>
+      <p>
+        Three layers, in the order data actually flows through them:
+      </p>
+      <ul>
+        <li>
+          <strong>Kotlin</strong> (<code>android/src/main/kotlin/</code>) — the only layer that
+          can talk to <code>android.hardware.usb.UsbManager</code>. Detects the dongle, requests
+          USB permission, and hands a raw file descriptor to the native side over JNI. Everything
+          else (tuning, streaming, stats, recording) never touches Kotlin again.
+        </li>
+        <li>
+          <strong>Native core</strong> (<code>android/src/main/cpp/</code>, C11 + a little C++17
+          for Oboe) — opens the dongle with that fd, runs two threads (USB read, DSP), and exposes
+          a small <code>extern "C"</code> API (<code>rtlsdr_shim.h</code>) that both JNI and Dart
+          FFI call directly into the same loaded <code>.so</code>.
+        </li>
+        <li>
+          <strong>Dart</strong> (<code>lib/src/</code>) — calls that same API directly via
+          <code>dart:ffi</code> (no method channel round-trip for the hot path: tuning, streaming
+          control, telemetry polling). The USB permission lifecycle is the one thing that still
+          goes through a <code>MethodChannel</code>/<code>EventChannel</code>, because only Kotlin
+          can grant it.
+        </li>
+      </ul>
+      <p>
+        Every native module below links to its Dart correspondent where one exists (some, like
+        the ring buffer or the FIR decimator, are pure implementation detail with nothing exposed
+        across the FFI boundary).
+      </p>
+    </section>
+
+    <section id="pipeline">
+      <h2>Signal pipeline</h2>
+      <div class="component">
+        <pre class="diagram">USB dongle (RTL2832U)
+   │
+   │  Kotlin: UsbManager, permission dialog, UsbDeviceConnection
+   ▼
+DriverRtlsdrPlugin.kt ──JNI (RegisterNatives)──► jni_bridge.cpp
+                                                       │
+                                                       ▼
+                                          rtlsdr_shim.c: shim_open_with_fd()
+                                          libusb_wrap_sys_device + rtlsdr_open_fd
+                                                       │
+                                     ┌─────────────────┴─────────────────┐
+                                     ▼                                   │
+                            usb_thread (rtlsdr_read_async)               │
+                                     │ iq_callback()                     │
+                                     ▼                                   │
+                         iq_ring (dsp/ring_buffer.c) ── SPSC ──►  dsp_thread_main()
+                                                                          │
+                                       ┌──────────────────────────────────┼───────────────────────────────┐
+                                       ▼                                  ▼                                ▼
+                        dsp/fir_decimator (IQ stage)          dsp/spectrum_fft                    dsp/iq_writer
+                          (channel-band decimation)         (raw pre-decim FFT,               (raw .cu8 tap,
+                                       │                       waterfall/spectrum)               demod-independent)
+                                       ▼
+                     demod dispatch on demod_mode_t (rtlsdr_shim.c):
+                     dsp/demod_fm (WFM/NFM) · dsp/demod_am (AM) · dsp/demod_ssb (USB/LSB)
+                                       │
+                     (WFM only) dsp/fm_stereo_pilot ──► dsp/rds_decoder
+                                       │
+                     squelch (NFM/AM/USB/LSB) + dsp/fir_decimator (audio stage)
+                     + dsp/deemphasis (WFM L/R, post-split)
+                                       │
+                                       ▼
+                        pcm_ring ──► audio/audio_sink_oboe.cpp (Oboe) ──► speaker
+                                       │
+                                       ▼
+                              dsp/wav_writer (demodulated-PCM recording tap)
+
+Dart, same process, same loaded .so, direct FFI (no channel round-trip):
+  native_library.dart (dlopen) → native_bindings.dart (function table)
+                                     │
+                     shim_types.dart (ShimStats / ShimRdsInfo structs)
+                     demod_mode.dart (DemodMode enum ↔ demod_mode_t)
+
+  usb_state.dart + usb_channel.dart — MethodChannel/EventChannel to Kotlin,
+  separate from the FFI path above (only for USB permission lifecycle).</pre>
+      </div>
+    </section>
+
+    <section id="component-map">
+      <h2>Component map</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Native (C/C++)</th><th>Dart correspondent</th><th>What it's for</th></tr></thead>
+          <tbody>
+            <tr><td><code>rtlsdr_shim.h/.c</code></td><td><code>native_bindings.dart</code>, <code>shim_types.dart</code></td><td>Whole public API + DSP thread orchestration</td></tr>
+            <tr><td><code>dsp/ring_buffer.*</code></td><td>—</td><td>SPSC byte ring buffer (USB → DSP thread)</td></tr>
+            <tr><td><code>dsp/fir_decimator.*</code></td><td>—</td><td>Two-stage decimation (IQ stage, audio stage)</td></tr>
+            <tr><td><code>dsp/demod_fm.*</code></td><td><code>demod_mode.dart</code> (<code>wfm</code>/<code>nfm</code>)</td><td>Quadrature discriminator</td></tr>
+            <tr><td><code>dsp/demod_am.*</code></td><td><code>demod_mode.dart</code> (<code>am</code>)</td><td>Envelope detector + DC blocker</td></tr>
+            <tr><td><code>dsp/demod_ssb.*</code></td><td><code>demod_mode.dart</code> (<code>usb</code>/<code>lsb</code>)</td><td>Phasing-method SSB demod</td></tr>
+            <tr><td><code>dsp/fm_stereo_pilot.*</code></td><td><code>ShimStats.stereoLocked/pilotLevel</code></td><td>19kHz pilot PLL, harmonics for demux/RDS</td></tr>
+            <tr><td><code>dsp/rds_decoder.*</code></td><td><code>ShimRdsInfo</code></td><td>57kHz RDS/RBDS decode</td></tr>
+            <tr><td><code>dsp/deemphasis.*</code></td><td>—</td><td>WFM L/R de-emphasis (50/75µs)</td></tr>
+            <tr><td><code>dsp/spectrum_fft.*</code></td><td><code>shimGetSpectrumDb</code></td><td>KissFFT over raw IQ, for waterfall</td></tr>
+            <tr><td><code>dsp/wav_writer.*</code></td><td><code>shimStart/StopRecording</code></td><td>Streaming WAV writer (demodulated PCM)</td></tr>
+            <tr><td><code>dsp/iq_writer.*</code></td><td><code>shimStart/StopIqRecording</code></td><td>Raw <code>.cu8</code> I/Q writer</td></tr>
+            <tr><td><code>audio/audio_sink*</code></td><td>—</td><td>Oboe (AAudio) playback</td></tr>
+            <tr><td><code>jni_bridge.cpp</code></td><td>— (Kotlin's <code>external fun</code>)</td><td>USB-fd handoff, JNI only</td></tr>
+            <tr><td>—</td><td><code>native_library.dart</code></td><td><code>dlopen</code> the shared library</td></tr>
+            <tr><td>—</td><td><code>usb_state.dart</code> / <code>usb_channel.dart</code></td><td>USB permission lifecycle (channel, not FFI)</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ============================= NATIVE CORE ============================= -->
+
+    <h2 style="font-size:20px; margin-top:56px;">Native core (C/C++)</h2>
+
+    <div class="component" id="rtlsdr-shim">
+      <h3>rtlsdr_shim.h / rtlsdr_shim.c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/rtlsdr_shim.h, rtlsdr_shim.c</span>
+      <p>
+        The whole public API of the native library, and the orchestrator that ties every other
+        module together. Every function is <code>extern "C"</code> so it can be called both by
+        Dart FFI (direct <code>dlsym</code>, no name mangling) and by <code>jni_bridge.cpp</code>.
+        Only <code>shim_open_with_fd()</code> is JNI-only — it needs a USB file descriptor that
+        only Kotlin's <code>UsbManager</code> can obtain.
+      </p>
+      <p><strong>Lifecycle:</strong> <code>shim_open_with_fd</code> wraps the fd with
+      <code>libusb_wrap_sys_device</code> + <code>rtlsdr_open_fd</code> (a patched librtlsdr entry
+      point — see <a href="#vendor">vendor</a> — that skips libusb enumeration, which would need
+      root on Android), allocates the two ring buffers, and sets defaults (100.0MHz, 1.024Msps,
+      AGC on, WFM). <code>shim_start_streaming</code> spawns two <code>pthread</code>s:</p>
+      <ul>
+        <li><code>usb_thread_main</code> — blocks in <code>rtlsdr_read_async</code>, copies raw
+        bytes into <code>iq_ring</code> as fast as possible, nothing else (must never be slow).</li>
+        <li><code>dsp_thread_main</code> — the actual pipeline: reads raw I/Q off the ring,
+        converts the 8-bit unsigned offset-binary samples to <code>-1..1</code> floats, taps the
+        raw stream for <a href="#spectrum-fft">spectrum</a> and <a href="#iq-writer">I/Q recording</a>,
+        runs the <a href="#fir-decimator">IQ-stage decimator</a>, computes RF level +
+        squelch, dispatches to the mode's demodulator
+        (<a href="#demod-fm">FM</a>/<a href="#demod-am">AM</a>/<a href="#demod-ssb">SSB</a>),
+        runs <a href="#fm-stereo-pilot">stereo</a>/<a href="#rds-decoder">RDS</a> when in WFM,
+        decimates to audio rate, applies <a href="#deemphasis">de-emphasis</a> (WFM), converts to
+        PCM16, writes to <code>pcm_ring</code> and taps it for <a href="#wav-writer">WAV recording</a>.</li>
+      </ul>
+      <p>
+        Decimation targets are mode-dependent: WFM decimates the IQ stage to ~256kHz (wide enough
+        for ±75kHz deviation + the 38/57kHz subcarriers); NFM/AM/USB/LSB all decimate to ~32kHz
+        (narrow channel). The audio stage further decimates to a fixed 32kHz output rate.
+        <code>demod_mode</code> is only read once, at the top of <code>dsp_thread_main</code> —
+        <strong>switching modes requires stopping and restarting streaming</strong> — but
+        stereo/RDS/squelch/gain are all read live from atomics every block, no restart needed.
+      </p>
+      <p>
+        State is a single global <code>shim_state_t g_state</code> (mutexes for anything with a
+        heap pointer that can be swapped concurrently — recording writers, RDS/spectrum snapshots
+        — atomics for scalar telemetry). This is deliberate: there is exactly one RTL-SDR dongle
+        per process, so a singleton avoids threading a context pointer through every FFI call.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Group</th><th>Functions</th></tr></thead>
+          <tbody>
+            <tr><td>Lifecycle</td><td><code>shim_open_with_fd</code>, <code>shim_close</code>, <code>shim_is_open</code></td></tr>
+            <tr><td>Tuning</td><td><code>shim_set/get_frequency_hz</code>, <code>shim_set/get_sample_rate_hz</code></td></tr>
+            <tr><td>Gain</td><td><code>shim_set_gain_mode</code>, <code>shim_set_gain_tenth_db</code>, <code>shim_get_gain_list</code></td></tr>
+            <tr><td>Demod/squelch</td><td><code>shim_set/get_demod_mode</code>, <code>shim_set_squelch_threshold_db</code></td></tr>
+            <tr><td>Stereo/RDS (WFM)</td><td><code>shim_set_stereo_enabled</code>, <code>shim_set_rds_enabled</code>, <code>shim_get_rds_info</code></td></tr>
+            <tr><td>Streaming</td><td><code>shim_start/stop_streaming</code>, <code>shim_is_streaming</code></td></tr>
+            <tr><td>Telemetry</td><td><code>shim_get_stats</code> → <code>shim_stats_t</code></td></tr>
+            <tr><td>Recording (PCM)</td><td><code>shim_start/stop_recording</code>, <code>shim_is_recording</code></td></tr>
+            <tr><td>Recording (raw I/Q)</td><td><code>shim_start/stop_iq_recording</code>, <code>shim_is_iq_recording</code></td></tr>
+            <tr><td>Spectrum</td><td><code>shim_get_spectrum_db</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="maps-to">Maps to → <a href="#native-bindings">native_bindings.dart</a> (every function above), <a href="#shim-types">shim_types.dart</a> (<code>shim_stats_t</code>/<code>shim_rds_info_t</code>).</div>
+    </div>
+
+    <div class="component" id="ring-buffer">
+      <h3>dsp/ring_buffer.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/ring_buffer.h, ring_buffer.c</span>
+      <p>
+        Lock-free single-producer/single-consumer byte ring buffer. Capacity must be a power of 2
+        (masking instead of modulo). Uses monotonically increasing <code>head</code>/<code>tail</code>
+        counters rather than values already wrapped to <code>capacity</code> — wraparound of the
+        counters themselves is fine because only their <em>difference</em> is ever used.
+      </p>
+      <p>
+        Exactly two instances exist: <code>iq_ring</code> (4MiB, ≈1s of margin at 2.048Msps) between
+        <code>usb_thread_main</code> and <code>dsp_thread_main</code>, and <code>pcm_ring</code>
+        (256KiB) between <code>dsp_thread_main</code> and Oboe's audio callback. Writes that don't
+        fit are dropped and counted (<code>ring_overflow_count</code> in <code>shim_stats_t</code>)
+        rather than blocking — a producer/consumer both running on time-sensitive threads must
+        never stall waiting on each other.
+      </p>
+      <p>Not exposed across FFI — purely an implementation detail of the pipeline's plumbing.</p>
+    </div>
+
+    <div class="component" id="fir-decimator">
+      <h3>dsp/fir_decimator.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/fir_decimator.h, fir_decimator.c</span>
+      <p>
+        Generic Hamming-windowed low-pass FIR, usable in both complex mode (I/Q, anti-aliasing
+        before reducing the sample rate) and real mode (post-demodulation audio, <code>in_q</code>/
+        <code>out_q</code> = <code>NULL</code>). Keeps a circular history buffer and only computes
+        the tap dot-product at decimation instants — cost is <code>O(num_taps)</code> per
+        <em>output</em> sample, not per input sample.
+      </p>
+      <p>
+        Used twice per streaming session: once for the IQ stage (63 taps, cutoff scaled to the
+        decimation factor) and once for the audio stage (same tap count, different cutoff). In
+        WFM the audio stage runs in "complex mode" too, but as two independent parallel real
+        filters for L and R rather than an actual I/Q rotation.
+      </p>
+      <p>Not exposed across FFI.</p>
+    </div>
+
+    <div class="component" id="demod-fm">
+      <h3>dsp/demod_fm.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/demod_fm.h, demod_fm.c</span>
+      <p>
+        Shared quadrature discriminator for WFM and NFM — the math is identical, only
+        <code>max_deviation_hz</code> (75kHz WFM, 5kHz NFM) and de-emphasis differ.
+        Conjugate-product discriminator: <code>d[n] = s[n]·conj(s[n-1])</code>, phase via
+        <code>atan2f</code>, scaled so maximum deviation maps to ±1.0 audio amplitude. In WFM the
+        de-emphasis argument is passed as <code>0</code> — the raw MPX has to survive intact (pilot
+        + subcarriers) until after the stereo demux; actual de-emphasis runs afterward, per channel,
+        via <a href="#deemphasis">dsp/deemphasis</a>.
+      </p>
+      <div class="maps-to">Maps to → <a href="#demod-mode">demod_mode.dart</a>'s <code>wfm</code>/<code>nfm</code> values.</div>
+    </div>
+
+    <div class="component" id="demod-am">
+      <h3>dsp/demod_am.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/demod_am.h, demod_am.c</span>
+      <p>
+        Envelope detector (<code>sqrt(i²+q²)</code>) followed by a one-pole DC blocker (coefficient
+        0.995, cuts well below 100Hz at the ~32kHz audio rates used here) to remove the large offset
+        the carrier leaves behind. The smallest demodulator in the codebase — 36 lines.
+      </p>
+      <div class="maps-to">Maps to → <a href="#demod-mode">demod_mode.dart</a>'s <code>am</code> value.</div>
+    </div>
+
+    <div class="component" id="demod-ssb">
+      <h3>dsp/demod_ssb.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/demod_ssb.h, demod_ssb.c</span>
+      <p>
+        SSB demodulation via the <strong>phasing method</strong>. Given the complex baseband
+        <code>s[n] = i[n] + j·q[n]</code> (same convention as <a href="#demod-fm">demod_fm</a>'s
+        discriminator), simply taking <code>i[n]</code> as audio would fold together whatever sits
+        at <code>+f</code> and <code>-f</code> — a real signal on the wrong side of the tuned
+        frequency would leak straight through. Instead:
+      </p>
+      <pre><code>audio_usb[n] = i[n-d] - hilbert(q)[n]   // keeps +f, rejects -f
+audio_lsb[n] = i[n-d] + hilbert(q)[n]   // keeps -f, rejects +f</code></pre>
+      <p>
+        <code>hilbert(q)</code> is a 63-tap windowed linear-phase FIR approximation of the ideal
+        Hilbert transform (odd taps only, <code>h[k] = 2/(πk)</code>, Hamming-windowed — same
+        window formula as <a href="#fir-decimator">fir_decimator</a>, for consistency); <code>d</code>
+        is that filter's group delay (31 samples), applied to <code>i[n]</code> via a plain circular
+        delay buffer so both branches line up in time before combining.
+      </p>
+      <div class="warn">
+        <strong>Verified against a synthetic signal, not real hardware.</strong>
+        <code>tool/native_tests/test_demod_ssb.c</code> feeds single-tone complex baseband signals
+        on each side of DC and checks that the matching sideband recovers the tone while the other
+        rejects it (&gt;50dB image rejection measured; run it with plain <code>cc</code>, no Android
+        toolchain needed — see the file's header comment for the exact command).
+      </div>
+      <div class="maps-to">Maps to → <a href="#demod-mode">demod_mode.dart</a>'s <code>usb</code>/<code>lsb</code> values.</div>
+    </div>
+
+    <div class="component" id="fm-stereo-pilot">
+      <h3>dsp/fm_stereo_pilot.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/fm_stereo_pilot.h, fm_stereo_pilot.c</span>
+      <p>
+        Second-order PLL locked to the 19kHz stereo pilot tone, running directly on the raw MPX
+        (no dedicated bandpass — the PLL's own narrow loop acts as a tracking filter, the same
+        technique open-source decoders like SoftFM use). Generates the 2nd and 3rd harmonics
+        (38kHz for the L−R demux, 57kHz for RDS downconversion) via double/triple-angle identities
+        from the NCO's own phase, so no second or third oscillator is needed.
+      </p>
+      <div class="warn">
+        <strong>Not validated on real hardware</strong> (no dongle in the development environment).
+        Loop gains (~8Hz bandwidth) and lock amplitude thresholds are starting-point estimates —
+        may need tuning against a real dongle, especially given the crystal frequency offset
+        common in cheap RTL-SDR dongles.
+      </div>
+      <div class="maps-to">Maps to → <code>ShimStats.stereoLocked</code>/<code>pilotLevel</code> in <a href="#shim-types">shim_types.dart</a>, toggled via <code>shimSetStereoEnabled</code> in <a href="#native-bindings">native_bindings.dart</a>.</div>
+    </div>
+
+    <div class="component" id="rds-decoder">
+      <h3>dsp/rds_decoder.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/rds_decoder.h, rds_decoder.c</span>
+      <p>
+        Full RDS/RBDS decode chain: coherent downconversion of the 57kHz subcarrier (reusing the
+        stereo pilot's PLL) → decimation → Gardner symbol-clock recovery at the 2375Hz biphase chip
+        rate → BPSK Costas loop for residual phase → biphase combining + differential decoding →
+        26-bit block sync (CRC/offset words) → group parsing (PI/PTY/TP/TA/PS from group 0A,
+        RadioText from group 2A/2B).
+      </p>
+      <p>
+        The CRC polynomial, offset-word/syndrome values, and the 26-row parity check matrix were
+        checked byte-for-byte against <a href="https://github.com/windytan/redsea">redsea</a>
+        (an actively-maintained open-source reference, MIT-licensed) rather than trusted from
+        memory. The DSP front-end (Gardner, Costas, biphase combining) is an original, simpler
+        implementation.
+      </p>
+      <div class="warn">
+        <strong>Not validated on real hardware — the highest-risk module in the project.</strong>
+        Known simplifications: 2-point linear interpolation for Gardner (vs. an independent
+        interpolation at −sps/2); block sync acquisition anchored only on offset A instead of
+        searching all 5 offsets in parallel; biphase-pair ambiguity resolved by a fallback heuristic
+        rather than analytically; no burst error correction (a group with any CRC error is simply
+        discarded); RDS character set not mapped (PS/RadioText stored as raw bytes — correct for
+        plain-ASCII stations, not the extended RDS table).
+      </div>
+      <div class="maps-to">Maps to → <code>ShimRdsInfo</code> in <a href="#shim-types">shim_types.dart</a>, toggled via <code>shimSetRdsEnabled</code>/read via <code>shimGetRdsInfo</code> in <a href="#native-bindings">native_bindings.dart</a>.</div>
+    </div>
+
+    <div class="component" id="deemphasis">
+      <h3>dsp/deemphasis.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/deemphasis.h, deemphasis.c</span>
+      <p>
+        One-pole de-emphasis shelf filter (50µs Europe/world, 75µs US/Korea). Extracted as its own
+        module because WFM stereo needs it applied <em>twice</em> — once per L/R channel, after the
+        pilot/L−R split and audio decimation — rather than once over the whole MPX before the split
+        (which would smear the 19/38/57kHz content the demux and RDS decoder both still need intact).
+      </p>
+      <p>Not exposed across FFI — an internal WFM-only detail.</p>
+    </div>
+
+    <div class="component" id="spectrum-fft">
+      <h3>dsp/spectrum_fft.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/spectrum_fft.h, spectrum_fft.c</span>
+      <p>
+        Complex FFT (via the vendored <a href="#vendor">KissFFT</a>) over a Hann-windowed block of
+        <em>raw</em>, pre-decimation I/Q — a view of the whole captured band, not the demodulator's
+        narrow channel. Output is already <code>fftshift</code>-reordered (bin 0 = lower edge of the
+        band, last bin = upper edge, DC in the middle) so it's ready to draw directly onto a
+        waterfall/spectrum widget. Throttled to ~20Hz in <code>dsp_thread_main</code> regardless of
+        how often the DSP loop itself runs.
+      </p>
+      <div class="maps-to">Maps to → <code>shimGetSpectrumDb</code> in <a href="#native-bindings">native_bindings.dart</a>.</div>
+    </div>
+
+    <div class="component" id="wav-writer">
+      <h3>dsp/wav_writer.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/wav_writer.h, wav_writer.c</span>
+      <p>
+        Incremental PCM16 WAV writer — writes a placeholder 44-byte RIFF/data header up front (the
+        final size is only known when recording stops), then streams samples as they arrive without
+        buffering the whole recording in memory. <code>wav_writer_close</code> seeks back and fixes
+        up the two size fields.
+      </p>
+      <p>
+        Tapped directly in <code>dsp_thread_main</code>, right before the PCM is written to
+        <code>pcm_ring</code> — records exactly what's about to reach the speaker, mono or stereo
+        depending on the active <code>demod_mode</code>.
+      </p>
+      <div class="maps-to">Maps to → <code>shimStart/StopRecording</code>/<code>shimIsRecording</code> in <a href="#native-bindings">native_bindings.dart</a>, progress via <code>ShimStats.recordingBytesWritten</code>.</div>
+    </div>
+
+    <div class="component" id="iq-writer">
+      <h3>dsp/iq_writer.h / .c <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/dsp/iq_writer.h, iq_writer.c</span>
+      <p>
+        The simplest writer in the codebase: no header, just a straight <code>fwrite</code> of the
+        interleaved 8-bit unsigned I/Q bytes exactly as the dongle sends them. This is the same
+        <code>.cu8</code> convention <code>rtl_sdr</code>/GNU Radio/gqrx use for raw captures, so a
+        recording from this driver opens directly in those tools.
+      </p>
+      <p>
+        Tapped in <code>dsp_thread_main</code> <em>before</em> the IQ-stage decimator — a faithful,
+        <code>demod_mode</code>-independent capture of what the dongle actually sent, useful for
+        signals this driver doesn't demodulate (yet). Runs on its own lock/state pair
+        (<code>iq_record_lock</code>/<code>iq_record_writer</code>), independent of
+        <a href="#wav-writer">wav_writer</a>'s — both taps can be active at the same time.
+      </p>
+      <div class="maps-to">Maps to → <code>shimStart/StopIqRecording</code>/<code>shimIsIqRecording</code> in <a href="#native-bindings">native_bindings.dart</a>, progress via <code>ShimStats.iqRecordingBytesWritten</code>.</div>
+    </div>
+
+    <div class="component" id="audio-sink">
+      <h3>audio/audio_sink.h, audio/audio_sink_oboe.cpp <span class="pill c">C / C++</span></h3>
+      <span class="path">android/src/main/cpp/audio/audio_sink.h, audio_sink_oboe.cpp</span>
+      <p>
+        <code>audio_sink.h</code> is a deliberately plain C boundary between the DSP thread (C,
+        <code>rtlsdr_shim.c</code>) and Oboe (C++, needs C++17). Keeping it C-only avoids pulling
+        <code>dsp/ring_buffer.h</code>'s <code>_Atomic</code> C11 syntax into a <code>.cpp</code>
+        translation unit, which doesn't mix cleanly with C++17.
+      </p>
+      <p>
+        <code>audio_sink_oboe.cpp</code> implements it against Oboe/AAudio: a pull-based callback
+        (<code>audio_pull_cb_t</code>) that Oboe's high-priority audio thread calls whenever it
+        needs more frames — <code>rtlsdr_shim.c</code> supplies <code>pcm_pull_callback</code>,
+        which just drains <code>pcm_ring</code>. An underrun (the callback returns fewer frames
+        than requested) zero-fills the rest of the buffer, careful to compute the fill offset in
+        <em>samples</em> (frames × channel count), not bytes.
+      </p>
+      <p>Not exposed across FFI — audio just plays; there's nothing for Dart to control here beyond
+      the channel count/sample rate implied by the active <code>demod_mode</code>.</p>
+    </div>
+
+    <div class="component" id="jni-bridge">
+      <h3>jni_bridge.cpp <span class="pill c">C++</span></h3>
+      <span class="path">android/src/main/cpp/jni_bridge.cpp</span>
+      <p>
+        The only JNI surface in the whole native library — it exists purely because USB
+        permission/opening can only happen from Kotlin. Registers three native methods
+        (<code>nativeOpenWithFd</code>/<code>nativeClose</code>/<code>nativeIsOpen</code>) against
+        <code>DriverRtlsdrPlugin</code> via <code>RegisterNatives</code> in <code>JNI_OnLoad</code>,
+        rather than relying on the static name-mangling convention
+        (<code>Java_com_..._DriverRtlsdrPlugin_nativeXxx</code>) — the underscore in
+        <code>driver_rtlsdr</code> mangles to <code>_1</code>, easy to get wrong by hand.
+      </p>
+      <p>
+        Everything past the initial fd handoff (tuning, streaming, stats, recording) is called by
+        Dart directly via FFI into <code>rtlsdr_shim.h</code>'s functions — this file has nothing
+        to do with any of that.
+      </p>
+      <div class="maps-to">Maps to → Kotlin's <code>external fun nativeOpenWithFd/nativeClose/nativeIsOpen</code> in <a href="#driver-plugin">DriverRtlsdrPlugin.kt</a> (not Dart — this bridge is Kotlin-only).</div>
+    </div>
+
+    <div class="component" id="vendor">
+      <h3>vendor/ — libusb, librtlsdr, KissFFT <span class="pill c">C</span></h3>
+      <span class="path">android/src/main/cpp/vendor/</span>
+      <p>Three vendored third-party dependencies, built from source (portable C, no prebuilt
+      per-ABI binaries — which is exactly why building an extra ABI for CI testing, like the
+      x86_64 opt-in used by the integration test emulator, is straightforward):</p>
+      <ul>
+        <li><strong>libusb</strong> (LGPL-2.1) — only the pieces this project actually needs
+        (<code>core.c</code>, <code>descriptor.c</code>, <code>hotplug.c</code>, <code>io.c</code>,
+        <code>sync.c</code>, the Linux/posix backend files), same source list librtlsdr's own
+        Android build uses.</li>
+        <li><strong>librtlsdr</strong> (GPLv2-or-later) — the tuner/demod-agnostic RTL2832U driver
+        itself, patched (<code>rtlsdr_open_fd</code>) to open a dongle from a file descriptor
+        Android's <code>UsbDeviceConnection</code> already granted, instead of enumerating USB
+        devices itself (which would require root on Android).</li>
+        <li><strong>KissFFT</strong> (BSD-3-Clause) — the FFT engine behind
+        <a href="#spectrum-fft">dsp/spectrum_fft</a>.</li>
+      </ul>
+      <p>See <code>tool/setup_native_deps.sh</code> for how these are fetched/patched, and
+      <code>LICENSE</code> for the full license breakdown (this driver links GPLv2 librtlsdr, which
+      requires any app using it to be GPL-distributed too).</p>
+    </div>
+
+    <!-- ============================= DART ============================= -->
+
+    <h2 style="font-size:20px; margin-top:56px;">Dart bindings</h2>
+
+    <div class="component" id="native-library">
+      <h3>native_library.dart <span class="pill dart">Dart</span></h3>
+      <span class="path">lib/src/native_library.dart</span>
+      <p>
+        Opens <code>libnative_rtlsdr.so</code> via <code>dart:ffi</code>'s
+        <code>DynamicLibrary.open</code> — the exact same shared library Kotlin loads with
+        <code>System.loadLibrary("native_rtlsdr")</code>. Because both sides run in the same
+        Android process and reference the same soname, the system linker resolves them to the
+        <em>same loaded instance</em> — which is why <code>rtlsdr_shim.c</code>'s global
+        <code>g_state</code> is effectively shared between the JNI-only USB open (Kotlin) and the
+        FFI-only control surface (Dart), with no IPC involved.
+      </p>
+      <p>Throws <code>UnsupportedError</code> if opened on a non-Android host — this package is
+      Android-only.</p>
+    </div>
+
+    <div class="component" id="native-bindings">
+      <h3>native_bindings.dart <span class="pill dart">Dart</span></h3>
+      <span class="path">lib/src/native_bindings.dart</span>
+      <p>
+        Hand-written FFI bindings (not <code>ffigen</code> — the API is small and stable enough
+        that the extra tooling isn't worth it) for every function in
+        <a href="#rtlsdr-shim">rtlsdr_shim.h</a> except <code>shim_open_with_fd</code>, which
+        deliberately has no Dart binding: only Kotlin has a valid USB file descriptor with
+        permission already granted (see <a href="#usb-channel">usb_channel.dart</a>). Each entry
+        is a <code>static final</code> function pointer resolved once via
+        <code>DynamicLibrary.lookupFunction</code>, grouped into the same sections as the C header
+        (lifecycle, tuning, gain, demod/squelch, stereo, RDS, streaming, telemetry, PCM recording,
+        raw I/Q recording, spectrum).
+      </p>
+    </div>
+
+    <div class="component" id="shim-types">
+      <h3>shim_types.dart <span class="pill dart">Dart</span></h3>
+      <span class="path">lib/src/shim_types.dart</span>
+      <p>
+        Two <code>ffi.Struct</code> subclasses that must mirror <code>shim_stats_t</code> and
+        <code>shim_rds_info_t</code> from <code>rtlsdr_shim.h</code> byte-for-byte — same field
+        order and types, including whatever implicit alignment padding a C compiler would insert
+        (<code>dart:ffi</code> resolves that the same way, as long as the order matches).
+      </p>
+      <p>
+        <code>test/shim_types_test.dart</code> guards this with a hand-computed
+        <code>sizeOf</code> check against each struct — not a full offset check (<code>dart:ffi</code>
+        doesn't expose a public <code>offsetOf</code>), but it catches the most common mistake:
+        adding a field on one side and forgetting the other. <code>ShimStats</code> is currently
+        48 bytes (grew from 40 when <code>iqRecordingBytesWritten</code> was added); <code>ShimRdsInfo</code>
+        is 100 bytes.
+      </p>
+    </div>
+
+    <div class="component" id="demod-mode">
+      <h3>demod_mode.dart <span class="pill dart">Dart</span></h3>
+      <span class="path">lib/src/demod_mode.dart</span>
+      <p>
+        <code>DemodMode</code> enum mirroring <code>demod_mode_t</code> — the numeric
+        <code>nativeValue</code> of each variant (<code>wfm</code>=0, <code>nfm</code>=1,
+        <code>am</code>=2, <code>usb</code>=3, <code>lsb</code>=4) is passed directly to
+        <code>shimSetDemodMode</code> via FFI, so it must stay in sync with the C enum by hand.
+        Also carries two convenience getters used by consuming UIs:
+        <code>supportsSquelch</code> (everything except WFM) and <code>supportsStereoAndRds</code>
+        (WFM only).
+      </p>
+    </div>
+
+    <div class="component" id="usb-state">
+      <h3>usb_state.dart <span class="pill dart">Dart</span></h3>
+      <span class="path">lib/src/usb_state.dart</span>
+      <p>
+        <code>UsbState</code> is a plain <code>ChangeNotifier</code> holding the observable
+        connection status (<code>UsbConnectionStatus</code>: <code>noDevice</code> →
+        <code>attached</code> → <code>permissionRequested</code> →
+        <code>permissionGranted</code>/<code>permissionDenied</code> → <code>deviceReady</code>)
+        plus the currently-connected <code>UsbDeviceInfo</code> and any last error message. It has
+        no native/channel code of its own — every mutator (<code>deviceAttached</code>,
+        <code>permissionGranted</code>, etc.) is called by <a href="#usb-channel">usb_channel.dart</a>
+        in response to Kotlin events, keeping the observable state and the transport that feeds it
+        cleanly separated.
+      </p>
+    </div>
+
+    <div class="component" id="usb-channel">
+      <h3>usb_channel.dart <span class="pill dart">Dart</span></h3>
+      <span class="path">lib/src/usb_channel.dart</span>
+      <p>
+        The one part of this package that does <em>not</em> use FFI — bridges to Kotlin via a
+        <code>MethodChannel</code> (<code>driver_rtlsdr</code>, for commands:
+        <code>getConnectedDevice</code>, <code>requestPermission</code>) and an
+        <code>EventChannel</code> (<code>driver_rtlsdr/events</code>, for
+        <code>attached</code>/<code>detached</code>/<code>permissionGranted</code>/
+        <code>permissionDenied</code>/<code>deviceReady</code>/<code>error</code> events), because
+        only Kotlin's <code>UsbAttachReceiver</code>/<code>UsbManager</code> can grant USB
+        permission. Every incoming event is translated into a call on <a href="#usb-state">UsbState</a>.
+      </p>
+    </div>
+
+    <!-- ============================= KOTLIN ============================= -->
+
+    <h2 style="font-size:20px; margin-top:56px;">Kotlin bridge</h2>
+    <p style="color:var(--fg-muted); margin-top:-10px;">
+      Included for completeness — this is the layer that makes the native/Dart split above possible
+      at all (only Kotlin can grant USB permission), even though it isn't C or Dart itself.
+    </p>
+
+    <div class="component" id="driver-plugin">
+      <h3>DriverRtlsdrPlugin.kt <span class="pill kotlin">Kotlin</span></h3>
+      <span class="path">android/src/main/kotlin/com/rtlsdrmobile/driver_rtlsdr/DriverRtlsdrPlugin.kt</span>
+      <p>
+        The plugin's Flutter entry point (<code>FlutterPlugin</code>,
+        <code>MethodCallHandler</code>, <code>EventChannel.StreamHandler</code>). Detects the
+        dongle via <code>UsbManager.deviceList</code>, requests permission through the classic
+        <code>PendingIntent</code> pattern, and — once granted — opens a
+        <code>UsbDeviceConnection</code> and hands its file descriptor to
+        <code>nativeOpenWithFd</code> (declared as <code>external fun</code>, resolved by
+        <a href="#jni-bridge">jni_bridge.cpp</a>'s <code>RegisterNatives</code> call). From that
+        point on this class is out of the picture — tuning/streaming/stats/recording all go
+        straight from Dart to the native library over FFI.
+      </p>
+      <p>
+        Deliberately does <strong>not</strong> manage a foreground service — unlike the original
+        <code>rtl-sdr mobile</code> app this driver was extracted from, keeping the process alive
+        during background streaming is left as a UX decision for each consuming app (see
+        README.md's "What this package deliberately does NOT provide").
+      </p>
+    </div>
+
+    <div class="component" id="usb-attach-receiver">
+      <h3>UsbAttachReceiver.kt <span class="pill kotlin">Kotlin</span></h3>
+      <span class="path">android/src/main/kotlin/com/rtlsdrmobile/driver_rtlsdr/UsbAttachReceiver.kt</span>
+      <p>
+        A small <code>BroadcastReceiver</code> that listens for
+        <code>ACTION_USB_DEVICE_ATTACHED</code>/<code>DETACHED</code> and the result of the
+        permission dialog <code>DriverRtlsdrPlugin</code> triggers, and forwards each as a plain
+        callback on its <code>Listener</code> interface
+        (<code>onDeviceAttached</code>/<code>onDeviceDetached</code>/<code>onPermissionResult</code>)
+        — <code>DriverRtlsdrPlugin</code> implements that interface and turns each callback into an
+        <code>EventChannel</code> event for Dart.
+      </p>
+    </div>
+
+    <footer>
+      Generated as part of documenting driver_rtlsdr's internals. See
+      <a href="../README.md">README.md</a> for usage, <a href="../CHANGELOG.md">CHANGELOG.md</a>
+      for version history, and <a href="../CONTRIBUTING.md">CONTRIBUTING.md</a> for how to work on
+      this codebase.
+    </footer>
+  </main>
+</div>
+</body>
+</html>

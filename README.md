@@ -367,11 +367,19 @@ breakdown.
 
 ## Architecture / how the native driver works
 
-See [`../rtl-sdr mobile/docs/how-it-was-built.md`](../rtl-sdr%20mobile/docs/how-it-was-built.md)
+[`docs/index.html`](docs/index.html) is a component-by-component reference
+for this package specifically — every native C/C++ file under
+`android/src/main/cpp/`, every Dart file under `lib/src/`, and the Kotlin
+USB bridge, with a signal-pipeline diagram tying them together. Start there
+for anything about how the plugin itself is built.
+
+For the deeper DSP design/validation story (stereo/RDS decoding, automatic
+scanning, recording, the visual tuner), see
+[`../rtl-sdr mobile/docs/how-it-was-built.md`](../rtl-sdr%20mobile/docs/how-it-was-built.md)
 (and its translation [`como-foi-construido.md`](../rtl-sdr%20mobile/docs/como-foi-construido.md))
-for a detailed technical explanation of how stereo/RDS decoding, automatic
-scanning, recording, and the visual tuner were designed and validated — that
-document describes the same native core this package exposes as a plugin.
+in this package's sibling app, from which the native core was extracted —
+note those links only resolve inside that monorepo checkout, not from a
+standalone clone of this package.
 
 ## Contributing
 
