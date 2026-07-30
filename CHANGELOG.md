@@ -1,3 +1,19 @@
+## Unreleased
+
+- Example app: mode selector now covers all 5 `DemodMode` values (added
+  USB/LSB), plus PCM and raw I/Q recording controls with live
+  bytes-written stats — exercises the whole new API surface manually, not
+  just what `integration_test` touches.
+- Validated SSB (USB/LSB) demodulation and raw I/Q recording end-to-end on
+  a real RTL2838U dongle (moto g35 5G, Android 15, over Wi-Fi ADB): both
+  sidebands ran without error at plausible RF/audio levels (confirmed via
+  the native `dsp_thread_main` log line, not just the UI), and both a
+  `.cu8` capture (byte mean ≈127.5, matching the expected offset-binary
+  ADC center) and a `.wav` recording (correct mono/32kHz header, valid
+  RIFF size fixup) were pulled off the device and inspected. First time
+  either recording path or SSB has run against real hardware rather than
+  just the emulator/synthetic tests.
+
 ## 0.1.0
 
 - Added a component-by-component reference doc (`docs/index.html`) for the

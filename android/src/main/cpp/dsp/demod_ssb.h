@@ -23,6 +23,14 @@ extern "C" {
  * that FIR's group delay — i[n] needs the same plain delay so both line
  * up in time before combining. See tool/native_tests/test_demod_ssb.c for
  * a synthetic-signal check that this actually rejects the correct image.
+ *
+ * Validated end-to-end on a real RTL2838U dongle (example app, both USB
+ * and LSB, tuned into the commercial FM band): the pipeline runs at
+ * plausible RF/audio levels with no crash and the correct 1-channel
+ * output — see the "DSP pipeline: mode 3/4" log line from dsp_thread_main.
+ * Not yet confirmed by ear against a real SSB voice transmission (that
+ * needs HF, not the VHF band this was tested on) — the image-rejection
+ * math itself is what tool/native_tests/test_demod_ssb.c checks.
  */
 typedef struct {
     int sideband; /* 0 = USB, 1 = LSB */

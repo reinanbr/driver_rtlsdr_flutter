@@ -29,6 +29,9 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
   ffi: ^2.2.0
+  # For choosing where PCM/raw-I/Q recordings go (shimStartRecording/
+  # shimStartIqRecording take an absolute path — see README.md).
+  path_provider: ^2.1.5
 
 dev_dependencies:
   integration_test:

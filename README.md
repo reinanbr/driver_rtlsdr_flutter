@@ -341,20 +341,23 @@ import 'package:driver_rtlsdr/driver_rtlsdr.dart';
   specific ABI, and that a real FFI call works — without needing a dongle
   physically connected. Run with:
   `cd example && flutter test integration_test`.
-- **Validation against real hardware**: this package's native core is
-  byte-for-byte the same as the `rtl-sdr mobile` app, which was tested live
-  against a real RTL2838U dongle (USB permission, tuning, streaming, mode
-  switching, stereo pilot lock, RDS sync/decoding against a real station,
-  recording, scanning) — see
+- **Validation against real hardware**: this package's WFM/NFM/AM/stereo/
+  RDS core is byte-for-byte the same as the `rtl-sdr mobile` app, which was
+  tested live against a real RTL2838U dongle (USB permission, tuning,
+  streaming, mode switching, stereo pilot lock, RDS sync/decoding against a
+  real station, recording, scanning) — see
   `../rtl-sdr mobile/docs/how-it-was-built.md` for the full results of that
-  validation. **This package's example app specifically** had its native
-  build validated (compiled and linked cleanly from scratch, all
-  vendored/adapted sources building correctly) and was successfully
-  installed on a real device; the live visual smoke test (opening the
-  screen, requesting permission, tuning) was left pending because the test
-  device's battery ran out (5%) mid-session — not an app failure. This is
-  the recommended first validation step before publishing/depending on this
-  package in production.
+  validation. **This package's example app specifically** (including SSB
+  and raw I/Q recording, both added after that validation) has since been
+  run end-to-end against a real RTL2838U dongle too: USB permission →
+  device open → all 5 `DemodMode` values streaming with plausible RF/audio
+  levels and no crash (confirmed via the native `dsp_thread_main` log, not
+  just the UI) → both a `.wav` and a `.cu8` recording pulled off the device
+  and inspected (correct WAV header/size fixup; raw I/Q byte mean ≈127.5,
+  matching the expected ADC offset-binary center). Not yet confirmed by
+  ear that the demodulated SSB audio is intelligible against a real SSB
+  voice transmission (that needs an actual HF signal, not the VHF band
+  this was tested on).
 
 ## License
 
