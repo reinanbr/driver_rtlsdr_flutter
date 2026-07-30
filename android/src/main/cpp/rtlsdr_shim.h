@@ -38,6 +38,8 @@ typedef enum {
     DEMOD_WFM = 0,
     DEMOD_NFM = 1,
     DEMOD_AM  = 2,
+    DEMOD_USB = 3, /* Upper sideband — phasing method, see dsp/demod_ssb.h */
+    DEMOD_LSB = 4, /* Lower sideband — phasing method, see dsp/demod_ssb.h */
 } demod_mode_t;
 
 /* ---- Lifecycle ------------------------------------------------------- */
@@ -68,8 +70,8 @@ int32_t shim_get_gain_list(int32_t *out_tenths_db, int32_t max_count);
  * Changing the mode only takes effect on the next shim_start_streaming()
  * (the DSP thread reads the mode once at startup) — switching modes while
  * streaming is active requires stopping and starting again. Squelch only
- * applies to NFM/AM; WFM ignores it (commercial broadcast radio wouldn't
- * have squelch, it's always "open"). */
+ * applies to NFM/AM/USB/LSB; WFM ignores it (commercial broadcast radio
+ * wouldn't have squelch, it's always "open"). */
 
 int32_t shim_set_demod_mode(int32_t mode /* demod_mode_t */);
 int32_t shim_get_demod_mode(void);

@@ -9,6 +9,8 @@ void main() {
       expect(DemodMode.wfm.nativeValue, 0);
       expect(DemodMode.nfm.nativeValue, 1);
       expect(DemodMode.am.nativeValue, 2);
+      expect(DemodMode.usb.nativeValue, 3);
+      expect(DemodMode.lsb.nativeValue, 4);
     });
 
     test('fromNativeValue round-trips each mode', () {
@@ -22,12 +24,22 @@ void main() {
     });
 
     test(
-      'only NFM/AM support squelch — WFM (commercial broadcast) does not',
+      'only NFM/AM/USB/LSB support squelch — WFM (commercial broadcast) does not',
       () {
         expect(DemodMode.wfm.supportsSquelch, isFalse);
         expect(DemodMode.nfm.supportsSquelch, isTrue);
         expect(DemodMode.am.supportsSquelch, isTrue);
+        expect(DemodMode.usb.supportsSquelch, isTrue);
+        expect(DemodMode.lsb.supportsSquelch, isTrue);
       },
     );
+
+    test('only WFM supports stereo/RDS', () {
+      expect(DemodMode.wfm.supportsStereoAndRds, isTrue);
+      expect(DemodMode.nfm.supportsStereoAndRds, isFalse);
+      expect(DemodMode.am.supportsStereoAndRds, isFalse);
+      expect(DemodMode.usb.supportsStereoAndRds, isFalse);
+      expect(DemodMode.lsb.supportsStereoAndRds, isFalse);
+    });
   });
 }

@@ -14,6 +14,7 @@
 #include "dsp/deemphasis.h"
 #include "dsp/demod_am.h"
 #include "dsp/demod_fm.h"
+#include "dsp/demod_ssb.h"
 #include "dsp/fir_decimator.h"
 #include "dsp/fm_stereo_pilot.h"
 #include "dsp/rds_decoder.h"
@@ -209,9 +210,10 @@ static float compute_rms_dbfs(const float *i, const float *q, size_t count) {
 }
 
 /* DSP thread: consumes raw IQ from the ring, decimation + demodulator
- * (WFM/NFM/AM, per the mode read at startup — switching modes requires
- * stopping and restarting streaming) + squelch (NFM/AM) + audio
- * decimation, writes PCM to the audio ring consumed by Oboe's callback. */
+ * (WFM/NFM/AM/USB/LSB, per the mode read at startup — switching modes
+ * requires stopping and restarting streaming) + squelch (NFM/AM/USB/LSB) +
+ * audio decimation, writes PCM to the audio ring consumed by Oboe's
+ * callback. */
 static void *dsp_thread_main(void *arg) {
     (void)arg;
 
@@ -261,6 +263,7 @@ static void *dsp_thread_main(void *arg) {
 
     fm_demod_t fm_demod;
     am_demod_t am_demod;
+    ssb_demod_t ssb_demod;
     fm_stereo_pilot_t stereo_pilot;
     rds_decoder_t *rds_decoder = NULL;
     deemphasis_t deemph_l;
@@ -273,6 +276,12 @@ static void *dsp_thread_main(void *arg) {
             break;
         case DEMOD_AM:
             am_demod_init(&am_demod);
+            break;
+        case DEMOD_USB:
+        case DEMOD_LSB:
+            if (ssb_demod_init(&ssb_demod, /*sideband=*/(mode == DEMOD_LSB) ? 1 : 0) != 0) {
+                LOGE("ssb_demod_init failed");
+            }
             break;
         case DEMOD_WFM:
         default:
@@ -413,6 +422,10 @@ static void *dsp_thread_main(void *arg) {
             fm_demod_process(&fm_demod, stage1_i, stage1_q, stage1_count, audio_pre);
             audio_count =
                 fir_decimator_process(&audio_stage, audio_pre, NULL, stage1_count, audio_out, NULL, WORK_CAPACITY);
+        } else if (mode == DEMOD_USB || mode == DEMOD_LSB) {
+            ssb_demod_process(&ssb_demod, stage1_i, stage1_q, stage1_count, audio_pre);
+            audio_count =
+                fir_decimator_process(&audio_stage, audio_pre, NULL, stage1_count, audio_out, NULL, WORK_CAPACITY);
         } else {
             /* DEMOD_WFM: audio_pre receives the raw MPX (no de-emphasis,
              * see fm_demod_init above) — 19kHz pilot + L+R (0-15kHz) +
@@ -538,6 +551,9 @@ static void *dsp_thread_main(void *arg) {
     audio_sink_stop();
     if (rds_decoder) {
         rds_decoder_destroy(rds_decoder);
+    }
+    if (mode == DEMOD_USB || mode == DEMOD_LSB) {
+        ssb_demod_destroy(&ssb_demod);
     }
     fir_decimator_destroy(&iq_stage);
     fir_decimator_destroy(&audio_stage);
@@ -815,7 +831,7 @@ int32_t shim_get_gain_list(int32_t *out_tenths_db, int32_t max_count) {
 }
 
 int32_t shim_set_demod_mode(int32_t mode) {
-    if (mode != DEMOD_WFM && mode != DEMOD_NFM && mode != DEMOD_AM) {
+    if (mode != DEMOD_WFM && mode != DEMOD_NFM && mode != DEMOD_AM && mode != DEMOD_USB && mode != DEMOD_LSB) {
         return SHIM_ERR_INVALID_ARG;
     }
     atomic_store_explicit(&g_state.demod_mode, mode, memory_order_relaxed);

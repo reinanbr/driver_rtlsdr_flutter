@@ -20,6 +20,7 @@ add_library(native_rtlsdr SHARED
     dsp/fir_decimator.c
     dsp/demod_fm.c
     dsp/demod_am.c
+    dsp/demod_ssb.c
     dsp/spectrum_fft.c
     dsp/wav_writer.c
     dsp/deemphasis.c

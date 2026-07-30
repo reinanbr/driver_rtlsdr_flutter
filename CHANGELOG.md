@@ -1,3 +1,13 @@
+## Unreleased
+
+- Added SSB demodulation (`DemodMode.usb`/`.lsb`), phasing method — Hilbert
+  transform on Q with a matched delay on I, so the unwanted sideband is
+  actually rejected (`android/src/main/cpp/dsp/demod_ssb.c`). Squelch now
+  applies to USB/LSB too (only WFM doesn't squelch). Verified against a
+  synthetic single-tone signal in `tool/native_tests/test_demod_ssb.c`
+  (host-only, no hardware/emulator needed — see that file for how to run
+  it), since there's no existing native DSP test harness in this repo.
+
 ## 0.0.2
 
 - Translated the entire codebase (comments, docs, log/error messages) from

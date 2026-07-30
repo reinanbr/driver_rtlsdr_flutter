@@ -3,7 +3,9 @@
 enum DemodMode {
   wfm(0, 'Commercial FM', 'WFM'),
   nfm(1, 'Narrowband FM', 'NFM'),
-  am(2, 'AM', 'AM');
+  am(2, 'AM', 'AM'),
+  usb(3, 'Upper Sideband', 'USB'),
+  lsb(4, 'Lower Sideband', 'LSB');
 
   const DemodMode(this.nativeValue, this.label, this.shortLabel);
 
@@ -18,6 +20,10 @@ enum DemodMode {
     );
   }
 
-  /// Squelch only makes sense for NFM/AM — commercial broadcast (WFM) doesn't use it.
+  /// Squelch only makes sense for NFM/AM/USB/LSB — commercial broadcast
+  /// (WFM) doesn't use it.
   bool get supportsSquelch => this != DemodMode.wfm;
+
+  /// Only WFM carries a stereo pilot/RDS — SSB and AM/NFM never do.
+  bool get supportsStereoAndRds => this == DemodMode.wfm;
 }

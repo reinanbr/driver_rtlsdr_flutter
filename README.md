@@ -23,7 +23,9 @@ waterfall/visualization.
 - **USB**: dongle detection, permission flow (`UsbState`/`UsbChannel`,
   `MethodChannel`/`EventChannel` over `DriverRtlsdrPlugin.kt`).
 - **Tuning**: frequency, sample rate.
-- **Demodulation**: WFM (with stereo and RDS), NFM, AM (`DemodMode`).
+- **Demodulation**: WFM (with stereo and RDS), NFM, AM, USB/LSB
+  (`DemodMode`) — SSB via the phasing method (Hilbert transform on Q,
+  matched delay on I), see `android/src/main/cpp/dsp/demod_ssb.c`.
 - **WFM stereo**: 19kHz pilot PLL, live on/off toggle
   (`shimSetStereoEnabled`), lock reported in `ShimStats.stereoLocked`.
 - **RDS**: PI/PTY/TP/TA/PS/RadioText (`ShimRdsInfo`, via `shimGetRdsInfo`),
@@ -185,13 +187,22 @@ always check the return value (see `_applyFrequency`/`_startStreaming` in
 
 ### More usage examples
 
-**Demodulation modes — `DemodMode.wfm` / `.nfm` / `.am`:**
+**Demodulation modes — `DemodMode.wfm` / `.nfm` / `.am` / `.usb` / `.lsb`:**
 
 | Mode | Typical use | Stereo/RDS | Squelch |
 | --- | --- | --- | --- |
 | `wfm` (Wideband/Commercial FM) | FM broadcast, e.g. 87.5–108.0 MHz | Yes (stereo + RDS) | No — commercial broadcast is always "open" |
 | `nfm` (Narrowband FM) | PMR/ham/two-way radio channels (12.5/25kHz spacing), e.g. VHF/UHF ham bands | No | Yes |
 | `am` (AM) | AM broadcast (~530kHz–1.7MHz), aviation (108–137MHz), shortwave | No | Yes |
+| `usb` (Upper Sideband) | HF ham radio above ~10MHz (by convention), most digital modes | No | Yes |
+| `lsb` (Lower Sideband) | HF ham radio below ~10MHz (by convention) | No | Yes |
+
+USB/LSB use the phasing method (a Hilbert transform on Q, matched by a
+plain delay on I — see `android/src/main/cpp/dsp/demod_ssb.c`) so the
+unwanted sideband is actually rejected, not just silently mixed in; a
+synthetic-signal check for this lives in
+`tool/native_tests/test_demod_ssb.c` (no hardware or emulator needed —
+see that file's header for how to build and run it).
 
 The tuner itself isn't restricted to these ranges — `shimSetFrequencyHz`
 accepts whatever the RTL2832U/tuner chip can physically reach (roughly
@@ -225,8 +236,8 @@ if (count > 0) NativeBindings.shimSetGainTenthDb(gains[0]);
 pkg_ffi.calloc.free(gains);
 ```
 
-**Squelch — NFM/AM only** (`DemodMode.supportsSquelch`; WFM is commercial
-broadcast and never squelches):
+**Squelch — everything except WFM** (`DemodMode.supportsSquelch`; WFM is
+commercial broadcast and never squelches):
 
 ```dart
 NativeBindings.shimSetSquelchThresholdDb(-30.0);
