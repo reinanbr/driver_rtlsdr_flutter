@@ -185,6 +185,31 @@ always check the return value (see `_applyFrequency`/`_startStreaming` in
 
 ### More usage examples
 
+**Demodulation modes — `DemodMode.wfm` / `.nfm` / `.am`:**
+
+| Mode | Typical use | Stereo/RDS | Squelch |
+| --- | --- | --- | --- |
+| `wfm` (Wideband/Commercial FM) | FM broadcast, e.g. 87.5–108.0 MHz | Yes (stereo + RDS) | No — commercial broadcast is always "open" |
+| `nfm` (Narrowband FM) | PMR/ham/two-way radio channels (12.5/25kHz spacing), e.g. VHF/UHF ham bands | No | Yes |
+| `am` (AM) | AM broadcast (~530kHz–1.7MHz), aviation (108–137MHz), shortwave | No | Yes |
+
+The tuner itself isn't restricted to these ranges — `shimSetFrequencyHz`
+accepts whatever the RTL2832U/tuner chip can physically reach (roughly
+24MHz–1.7GHz depending on the tuner, e.g. R820T). The ranges above are just
+what each demodulation scheme is designed to decode correctly.
+
+**Switching modes requires stopping and restarting streaming** — the DSP
+thread reads the mode once, at `shimStartStreaming()`, not on every block:
+
+```dart
+NativeBindings.shimStopStreaming();
+NativeBindings.shimSetDemodMode(DemodMode.nfm.nativeValue);
+NativeBindings.shimStartStreaming();
+```
+
+(Compare with stereo/RDS/squelch/gain below, all of which apply live —
+no restart needed.)
+
 **Gain — automatic (AGC) or manual, in tenths of a dB:**
 
 ```dart
