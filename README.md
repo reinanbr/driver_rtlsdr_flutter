@@ -100,6 +100,172 @@ dependencies:
    implementation (permission → tuning via slider → mode selection →
    start/stop streaming → live statistics, including stereo pilot lock).
 
+### Quick start: permission → tuning → streaming
+
+```dart
+import 'package:driver_rtlsdr/driver_rtlsdr.dart';
+import 'package:flutter/material.dart';
+
+class RadioScreen extends StatefulWidget {
+  const RadioScreen({super.key});
+  @override
+  State<RadioScreen> createState() => _RadioScreenState();
+}
+
+class _RadioScreenState extends State<RadioScreen> {
+  late final UsbState _usbState;
+  late final UsbChannel _usbChannel;
+
+  @override
+  void initState() {
+    super.initState();
+    _usbState = UsbState();
+    _usbChannel = UsbChannel(state: _usbState);
+    // Covers the case where the dongle is already plugged in when this
+    // screen opens (no USB_DEVICE_ATTACHED broadcast fires in that case).
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _usbChannel.refreshConnectedDevices(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _usbChannel.dispose(); // stops listening; does NOT stop streaming — see below
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: _usbState,
+      builder: (context, _) => switch (_usbState.status) {
+        UsbConnectionStatus.noDevice => const Text(
+          'Connect an RTL-SDR dongle via a USB-OTG cable.',
+        ),
+        UsbConnectionStatus.attached ||
+        UsbConnectionStatus.permissionDenied => FilledButton(
+          onPressed: _usbChannel.requestPermission,
+          child: const Text('Grant USB permission'),
+        ),
+        UsbConnectionStatus.permissionRequested => const CircularProgressIndicator(),
+        UsbConnectionStatus.deviceReady => const _Tuner(),
+      },
+    );
+  }
+}
+```
+
+Once `_usbState.status` reaches `UsbConnectionStatus.deviceReady`, the native
+driver has the dongle open and `NativeBindings` is ready to use — no more
+plugin-level setup needed:
+
+```dart
+// Tune to 100.0 MHz and start streaming in WFM (commercial FM broadcast).
+NativeBindings.shimSetFrequencyHz(100000000);
+NativeBindings.shimSetDemodMode(DemodMode.wfm.nativeValue);
+final status = NativeBindings.shimStartStreaming(); // 0 == success
+
+// While streaming, poll stats periodically (e.g. Timer.periodic every
+// 500ms) to drive a level meter / stereo indicator in your UI:
+final statsPtr = pkg_ffi.calloc<ShimStats>();
+if (NativeBindings.shimGetStats(statsPtr) == 0) {
+  final rfLevelDbfs = statsPtr.ref.rfLevelDbfs;
+  final audioLevelDbfs = statsPtr.ref.audioLevelDbfs;
+  final stereoLocked = statsPtr.ref.stereoLocked != 0;
+}
+// Free statsPtr once, when the screen disposes — not on every poll.
+
+NativeBindings.shimStopStreaming();
+pkg_ffi.calloc.free(statsPtr);
+```
+
+`shim*` calls return `0` on success and a negative error code otherwise —
+always check the return value (see `_applyFrequency`/`_startStreaming` in
+`example/lib/main.dart` for the pattern used throughout the example app).
+
+### More usage examples
+
+**Gain — automatic (AGC) or manual, in tenths of a dB:**
+
+```dart
+// Automatic:
+NativeBindings.shimSetGainMode(1);
+
+// Manual — read the tuner's supported gain steps first (librtlsdr's own
+// convention: tenths of a dB, e.g. 40 == 4.0 dB), then pick one:
+final gains = pkg_ffi.calloc<ffi.Int32>(32);
+final count = NativeBindings.shimGetGainList(gains, 32);
+NativeBindings.shimSetGainMode(0);
+if (count > 0) NativeBindings.shimSetGainTenthDb(gains[0]);
+pkg_ffi.calloc.free(gains);
+```
+
+**Squelch — NFM/AM only** (`DemodMode.supportsSquelch`; WFM is commercial
+broadcast and never squelches):
+
+```dart
+NativeBindings.shimSetSquelchThresholdDb(-30.0);
+```
+
+**RDS — WFM only, applied live (no restart needed):**
+
+```dart
+NativeBindings.shimSetRdsEnabled(1);
+
+final rdsPtr = pkg_ffi.calloc<ShimRdsInfo>();
+if (NativeBindings.shimGetRdsInfo(rdsPtr) == 0 && rdsPtr.ref.syncLocked != 0) {
+  final stationName = _decodeAscii(rdsPtr.ref.ps); // up to 8 chars
+  final radiotext = _decodeAscii(rdsPtr.ref.radiotext); // up to 64 chars
+}
+pkg_ffi.calloc.free(rdsPtr);
+```
+
+`ps`/`radiotext` are fixed-size, null-terminated byte arrays (`ShimRdsInfo`
+mirrors the native struct 1:1) — decode them with a small helper:
+
+```dart
+String _decodeAscii(ffi.Array<ffi.Uint8> arr) {
+  final bytes = <int>[];
+  for (var i = 0; i < arr.length && arr[i] != 0; i++) {
+    bytes.add(arr[i]);
+  }
+  return String.fromCharCodes(bytes);
+}
+```
+
+**Spectrum — snapshot of the whole captured band, for a waterfall/plot:**
+
+```dart
+const numBins = 512;
+final binsPtr = pkg_ffi.calloc<ffi.Float>(numBins);
+if (NativeBindings.shimGetSpectrumDb(binsPtr, numBins) == 0) {
+  // bins[0] = lower edge of the band, bins[last] = upper edge.
+  final bins = List.generate(numBins, (i) => binsPtr[i]);
+}
+pkg_ffi.calloc.free(binsPtr);
+```
+
+**Recording the demodulated audio to a WAV file:**
+
+```dart
+final dir = await getApplicationDocumentsDirectory(); // package:path_provider
+final path = '${dir.path}/capture.wav';
+final pathPtr = path.toNativeUtf8(); // package:ffi
+NativeBindings.shimStartRecording(pathPtr);
+pkg_ffi.calloc.free(pathPtr);
+
+// ... later, while still streaming:
+NativeBindings.shimStopRecording();
+```
+
+All snippets above assume:
+
+```dart
+import 'dart:ffi' as ffi;
+import 'package:ffi/ffi.dart' as pkg_ffi;
+import 'package:driver_rtlsdr/driver_rtlsdr.dart';
+```
+
 ## Tests
 
 - `test/` — pure Dart unit tests, run on the host (no Android or dongle
