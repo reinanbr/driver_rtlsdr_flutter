@@ -1,12 +1,17 @@
 name: driver_rtlsdr
 description: >
-  Android driver for RTL-SDR dongles (RTL2832U) over USB-OTG: USB
-  permission/open, tuning, IQ streaming, WFM/NFM/AM demodulation with stereo
-  and RDS, spectrum, recording and gain — a reusable native core (C, GPLv2)
-  for any Flutter software-defined-radio app, not just the rtl-sdr mobile
-  app it was extracted from.
+  Android driver for RTL-SDR (RTL2832U) dongles over USB-OTG: tuning, IQ
+  streaming, WFM/NFM/AM demodulation with stereo and RDS, spectrum,
+  recording and gain. Reusable native core (C, GPLv2).
 version: 0.0.1
-homepage:
+repository: https://github.com/reinanbr/driver_rtlsdr_flutter
+issue_tracker: https://github.com/reinanbr/driver_rtlsdr_flutter/issues
+topics:
+  - android
+  - usb
+  - ffi
+  - audio
+  - hardware
 
 environment:
   sdk: ^3.12.2
