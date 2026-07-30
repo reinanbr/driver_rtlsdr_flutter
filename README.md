@@ -7,7 +7,7 @@
 [![License: GPL v2 or later](https://img.shields.io/badge/license-GPLv2--or--later-blue.svg)](LICENSE)
 
 Android driver (Flutter plugin) for RTL-SDR dongles (RTL2832U chipset) over
-USB-OTG. Extracted from the [`rtl-sdr mobile`](../rtl-sdr%20mobile) app
+USB-OTG. Extracted from the [`rtl-sdr mobile`](https://github.com/reinanbr/apk_rtl_sdr_flutter) app
 (sibling folder to this package) so that other Flutter software-defined-radio
 apps can build their own UI/UX on top of the same native core, instead of
 reimplementing USB + libusb + librtlsdr + DSP from scratch.
