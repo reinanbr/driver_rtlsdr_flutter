@@ -1,3 +1,11 @@
+## 0.1.2
+
+- CI: fixed pub.dev auto-publish, which had silently failed for every
+  release so far (0.0.2, 0.1.0, 0.1.1) — the workflow was missing the
+  `dart-lang/setup-dart@v1` step that actually configures OIDC
+  credentials, so `flutter pub publish` had nothing to authenticate with
+  and fell back to an interactive login flow that just hangs in CI.
+
 ## 0.1.1
 
 - Example app: mode selector now covers all 5 `DemodMode` values (added
