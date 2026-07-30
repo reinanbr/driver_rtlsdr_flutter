@@ -118,6 +118,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # This is the step that actually creates/writes the OIDC credentials
+      # `flutter pub publish` needs — without it, there's nothing for pub
+      # publish to authenticate with, so it silently falls back to its
+      # interactive browser OAuth flow (which is the timeout above catches,
+      # but the real fix is this step). Confirmed via the v0.1.1 run's raw
+      # log: "Pub needs your authorization... In a web browser, go to
+      # https://accounts.google.com/o/oauth2/auth..." — that's the
+      # tell-tale sign this step is missing, not a pub.dev-side
+      # misconfiguration. See https://dart.dev/tools/pub/automated-publishing.
+      - uses: dart-lang/setup-dart@v1
+
       - uses: subosito/flutter-action@v2
         with:
           channel: stable
