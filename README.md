@@ -378,8 +378,8 @@ for anything about how the plugin itself is built.
 
 For the deeper DSP design/validation story (stereo/RDS decoding, automatic
 scanning, recording, the visual tuner), see
-[`../rtl-sdr mobile/docs/how-it-was-built.md`](../rtl-sdr%20mobile/docs/how-it-was-built.md)
-(and its translation [`como-foi-construido.md`](../rtl-sdr%20mobile/docs/como-foi-construido.md))
+[`../rtl-sdr mobile/docs/how-it-was-built.md`](https://github.com/reinanbr/apk_rtl_sdr_flutter/blob/main/docs/how-it-was-built.md)
+(and its translation [`como-foi-construido.md`](https://github.com/reinanbr/apk_rtl_sdr_flutter/blob/main/docs/como-foi-construido.md))
 in this package's sibling app, from which the native core was extracted —
 note those links only resolve inside that monorepo checkout, not from a
 standalone clone of this package.
