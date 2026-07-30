@@ -17,6 +17,7 @@
 #include "dsp/demod_ssb.h"
 #include "dsp/fir_decimator.h"
 #include "dsp/fm_stereo_pilot.h"
+#include "dsp/iq_writer.h"
 #include "dsp/rds_decoder.h"
 #include "dsp/ring_buffer.h"
 #include "dsp/spectrum_fft.h"
@@ -133,6 +134,18 @@ typedef struct {
     wav_writer_t *record_writer;
     _Atomic int recording_active;
     _Atomic uint64_t recording_bytes_written;
+
+    /* Raw I/Q recording: independent tap of the pre-decimation stream (see
+     * dsp/iq_writer.h) — own lock/pointer pair since it taps a different
+     * point in the pipeline than record_lock/record_writer above and
+     * starts/stops independently (both can be active at once). Same
+     * correctness pattern as recording_active/record_writer (re-check
+     * inside the lock guards against the race with
+     * shim_stop_iq_recording). */
+    pthread_mutex_t iq_record_lock;
+    iq_writer_t *iq_record_writer;
+    _Atomic int iq_recording_active;
+    _Atomic uint64_t iq_recording_bytes_written;
 } shim_state_t;
 
 static shim_state_t g_state = {
@@ -140,6 +153,7 @@ static shim_state_t g_state = {
     .spectrum_lock = PTHREAD_MUTEX_INITIALIZER,
     .record_lock = PTHREAD_MUTEX_INITIALIZER,
     .rds_lock = PTHREAD_MUTEX_INITIALIZER,
+    .iq_record_lock = PTHREAD_MUTEX_INITIALIZER,
 };
 
 /* ---- USB reader callback (called from inside libusb_handle_events, on
@@ -370,6 +384,21 @@ static void *dsp_thread_main(void *arg) {
         if (n == 0) {
             usleep(2000);
             continue;
+        }
+
+        /* Raw I/Q recording tap: exactly what the dongle sent, before any
+         * conversion/decimation/demodulation below — independent of
+         * demod_mode. The atomic check outside the lock avoids paying for
+         * a mutex when not IQ-recording; the re-check of iq_record_writer
+         * != NULL inside the lock is what's actually race-safe against
+         * shim_stop_iq_recording (same pattern as the PCM recording tap
+         * further below). */
+        if (atomic_load_explicit(&g_state.iq_recording_active, memory_order_relaxed)) {
+            pthread_mutex_lock(&g_state.iq_record_lock);
+            if (g_state.iq_record_writer && iq_writer_write(g_state.iq_record_writer, raw, n) == 0) {
+                atomic_fetch_add_explicit(&g_state.iq_recording_bytes_written, n, memory_order_relaxed);
+            }
+            pthread_mutex_unlock(&g_state.iq_record_lock);
         }
 
         size_t pairs = n / 2;
@@ -672,6 +701,23 @@ static int stop_recording_if_active(void) {
     return 1;
 }
 
+/* Same shape as stop_recording_if_active(), for the independent raw I/Q
+ * tap — see shim_stop_iq_recording()/shim_stop_streaming(). */
+static int stop_iq_recording_if_active(void) {
+    pthread_mutex_lock(&g_state.iq_record_lock);
+    if (!atomic_load(&g_state.iq_recording_active)) {
+        pthread_mutex_unlock(&g_state.iq_record_lock);
+        return 0;
+    }
+    iq_writer_t *writer = g_state.iq_record_writer;
+    g_state.iq_record_writer = NULL;
+    atomic_store(&g_state.iq_recording_active, 0);
+    pthread_mutex_unlock(&g_state.iq_record_lock);
+
+    iq_writer_close(writer);
+    return 1;
+}
+
 int32_t shim_stop_streaming(void) {
     pthread_mutex_lock(&g_state.lock);
     if (!atomic_load(&g_state.is_streaming)) {
@@ -695,6 +741,7 @@ int32_t shim_stop_streaming(void) {
     pthread_mutex_unlock(&g_state.lock);
 
     stop_recording_if_active();
+    stop_iq_recording_if_active();
     return SHIM_OK;
 }
 
@@ -936,6 +983,8 @@ int32_t shim_get_stats(shim_stats_t *out) {
     out->recording_bytes_written = atomic_load_explicit(&g_state.recording_bytes_written, memory_order_relaxed);
     out->stereo_locked = atomic_load_explicit(&g_state.stereo_locked, memory_order_relaxed);
     out->pilot_level = atomic_load_explicit(&g_state.pilot_level, memory_order_relaxed);
+    out->iq_recording_bytes_written =
+        atomic_load_explicit(&g_state.iq_recording_bytes_written, memory_order_relaxed);
     return SHIM_OK;
 }
 
@@ -1016,4 +1065,40 @@ int32_t shim_stop_recording(void) {
 
 int32_t shim_is_recording(void) {
     return atomic_load(&g_state.recording_active) ? 1 : 0;
+}
+
+int32_t shim_start_iq_recording(const char *file_path) {
+    if (!file_path) {
+        return SHIM_ERR_INVALID_ARG;
+    }
+    if (!atomic_load(&g_state.is_streaming)) {
+        return SHIM_ERR_NOT_STREAMING;
+    }
+
+    pthread_mutex_lock(&g_state.iq_record_lock);
+    if (atomic_load(&g_state.iq_recording_active)) {
+        pthread_mutex_unlock(&g_state.iq_record_lock);
+        return SHIM_ERR_RECORDING_ACTIVE;
+    }
+
+    iq_writer_t *writer = iq_writer_open(file_path);
+    if (!writer) {
+        pthread_mutex_unlock(&g_state.iq_record_lock);
+        LOGE("shim_start_iq_recording: failed to open '%s'", file_path);
+        return SHIM_ERR_RECORDING_OPEN_FAILED;
+    }
+
+    g_state.iq_record_writer = writer;
+    atomic_store(&g_state.iq_recording_bytes_written, 0);
+    atomic_store(&g_state.iq_recording_active, 1);
+    pthread_mutex_unlock(&g_state.iq_record_lock);
+    return SHIM_OK;
+}
+
+int32_t shim_stop_iq_recording(void) {
+    return stop_iq_recording_if_active() ? SHIM_OK : SHIM_ERR_NOT_RECORDING;
+}
+
+int32_t shim_is_iq_recording(void) {
+    return atomic_load(&g_state.iq_recording_active) ? 1 : 0;
 }

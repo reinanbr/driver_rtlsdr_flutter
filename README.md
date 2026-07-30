@@ -38,7 +38,10 @@ waterfall/visualization.
   (`shimGetSpectrumDb`).
 - **Recording**: records the demodulated PCM (mono or stereo, whatever the
   session is producing) directly to a WAV file (`shimStartRecording`/
-  `shimStopRecording`).
+  `shimStopRecording`), or the raw pre-decimation I/Q stream as a
+  `.cu8` file compatible with `rtl_sdr`/GNU Radio/gqrx
+  (`shimStartIqRecording`/`shimStopIqRecording`) — independent of each
+  other and of `DemodMode`.
 - **Statistics**: IQ rate, ring buffer overflow, RF/audio level
   (`ShimStats`, via `shimGetStats`).
 
@@ -293,6 +296,29 @@ pkg_ffi.calloc.free(pathPtr);
 // ... later, while still streaming:
 NativeBindings.shimStopRecording();
 ```
+
+**Recording the raw I/Q stream** (pre-decimation, before any
+demodulation — the exact bytes the dongle sent, independent of
+`DemodMode`; can run at the same time as the WAV recording above, they
+tap different points in the pipeline):
+
+```dart
+final dir = await getApplicationDocumentsDirectory();
+final path = '${dir.path}/capture.cu8';
+final pathPtr = path.toNativeUtf8();
+NativeBindings.shimStartIqRecording(pathPtr);
+pkg_ffi.calloc.free(pathPtr);
+
+// ... later, while still streaming:
+NativeBindings.shimStopIqRecording();
+```
+
+The file is raw interleaved 8-bit unsigned I/Q (`I,Q,I,Q...`, no header) —
+the same `.cu8` convention `rtl_sdr`/GNU Radio/gqrx use for raw captures,
+so it opens directly in those tools (e.g. for offline analysis of a
+signal this driver doesn't demodulate). `ShimStats.iqRecordingBytesWritten`
+reports progress the same way `recordingBytesWritten` does for the WAV
+recording.
 
 All snippets above assume:
 

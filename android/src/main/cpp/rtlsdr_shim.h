@@ -128,6 +128,7 @@ typedef struct {
     uint64_t recording_bytes_written; /* 0 if not recording */
     int32_t  stereo_locked;           /* 19kHz pilot detected (only meaningful in WFM) */
     float    pilot_level;             /* pilot amplitude (arbitrary unit, only useful relatively) */
+    uint64_t iq_recording_bytes_written; /* 0 if not IQ-recording — see shim_start_iq_recording */
 } shim_stats_t;
 
 int32_t shim_get_stats(shim_stats_t *out);
@@ -144,6 +145,19 @@ int32_t shim_get_stats(shim_stats_t *out);
 int32_t shim_start_recording(const char *file_path);
 int32_t shim_stop_recording(void);
 int32_t shim_is_recording(void);
+
+/* ---- Raw I/Q recording ---------------------------------------------------
+ * Dumps the interleaved 8-bit unsigned I/Q exactly as the dongle delivers
+ * it — no header, same convention rtl_sdr/GNU Radio/gqrx use for ".cu8"
+ * captures — tapped BEFORE decimation/demodulation, so it's independent
+ * of demod_mode and useful for signals this driver doesn't demodulate
+ * (yet). Independent of shim_start_recording (demodulated PCM) — both can
+ * run at the same time, they tap different points in the pipeline.
+ * Requires active streaming; stopping streaming automatically closes an
+ * in-progress IQ recording. */
+int32_t shim_start_iq_recording(const char *file_path);
+int32_t shim_stop_iq_recording(void);
+int32_t shim_is_iq_recording(void);
 
 /* ---- Spectrum (Dart polls at ~20-30fps for the waterfall) --------------
  * Snapshot of the whole captured band (not the demodulator's narrow

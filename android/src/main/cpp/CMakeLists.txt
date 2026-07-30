@@ -23,6 +23,7 @@ add_library(native_rtlsdr SHARED
     dsp/demod_ssb.c
     dsp/spectrum_fft.c
     dsp/wav_writer.c
+    dsp/iq_writer.c
     dsp/deemphasis.c
     dsp/fm_stereo_pilot.c
     dsp/rds_decoder.c

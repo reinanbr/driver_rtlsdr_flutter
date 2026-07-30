@@ -151,4 +151,26 @@ class NativeBindings {
       .lookupFunction<ffi.Int32 Function(), int Function()>(
         'shim_is_recording',
       );
+
+  // ---- Raw I/Q recording ---------------------------------------------------
+  // Dumps the interleaved 8-bit unsigned I/Q exactly as the dongle sends it
+  // (rtl_sdr/GNU Radio/gqrx ".cu8" convention), before decimation/demod —
+  // independent of shimStartRecording, both can run at once.
+
+  static final int Function(ffi.Pointer<pkg_ffi.Utf8> filePath)
+  shimStartIqRecording = _lib
+      .lookupFunction<
+        ffi.Int32 Function(ffi.Pointer<pkg_ffi.Utf8>),
+        int Function(ffi.Pointer<pkg_ffi.Utf8>)
+      >('shim_start_iq_recording');
+
+  static final int Function() shimStopIqRecording = _lib
+      .lookupFunction<ffi.Int32 Function(), int Function()>(
+        'shim_stop_iq_recording',
+      );
+
+  static final int Function() shimIsIqRecording = _lib
+      .lookupFunction<ffi.Int32 Function(), int Function()>(
+        'shim_is_iq_recording',
+      );
 }

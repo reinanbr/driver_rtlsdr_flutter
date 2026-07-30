@@ -16,11 +16,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// on each test.
 void main() {
   group('FFI struct layout (mirrors rtlsdr_shim.h)', () {
-    test('ShimStats: 40 bytes', () {
+    test('ShimStats: 48 bytes', () {
       // uint64(8)@0 + uint32(4)@8 + float(4)@12 + float(4)@16 + int32(4)@20
-      // + uint64(8)@24 (realigned to 8) + int32(4)@32 + float(4)@36 = 40,
-      // already a multiple of the strictest alignment (8).
-      expect(ffi.sizeOf<ShimStats>(), 40);
+      // + uint64(8)@24 (realigned to 8) + int32(4)@32 + float(4)@36 +
+      // uint64(8)@40 (already 8-aligned, no padding needed) = 48, already a
+      // multiple of the strictest alignment (8).
+      expect(ffi.sizeOf<ShimStats>(), 48);
     });
 
     test('ShimRdsInfo: 100 bytes', () {

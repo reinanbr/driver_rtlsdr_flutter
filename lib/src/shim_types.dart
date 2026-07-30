@@ -25,6 +25,9 @@ final class ShimStats extends ffi.Struct {
 
   @ffi.Float()
   external double pilotLevel;
+
+  @ffi.Uint64()
+  external int iqRecordingBytesWritten;
 }
 
 /// Mirrors `shim_rds_info_t` from rtlsdr_shim.h (layout must match the C

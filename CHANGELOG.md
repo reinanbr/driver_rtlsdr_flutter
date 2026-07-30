@@ -7,6 +7,13 @@
   synthetic single-tone signal in `tool/native_tests/test_demod_ssb.c`
   (host-only, no hardware/emulator needed — see that file for how to run
   it), since there's no existing native DSP test harness in this repo.
+- Added raw I/Q recording (`shimStartIqRecording`/`shimStopIqRecording`),
+  independent of the existing demodulated-PCM recording — dumps the
+  interleaved 8-bit unsigned I/Q exactly as the dongle sends it, tapped
+  before decimation/demodulation (`android/src/main/cpp/dsp/iq_writer.c`),
+  in the same `.cu8` format `rtl_sdr`/GNU Radio/gqrx use for raw captures.
+  New `ShimStats.iqRecordingBytesWritten` field (`shim_stats_t` grew from
+  40 to 48 bytes — see the updated FFI layout test).
 
 ## 0.0.2
 
