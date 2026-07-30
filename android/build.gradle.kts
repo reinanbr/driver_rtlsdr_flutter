@@ -54,6 +54,15 @@ android {
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")
+
+            // Opt-in only (ORG_GRADLE_PROJECT_driverRtlsdrCiAbis=true, set by
+            // ci.yml's integration job): adds x86_64 so the plugin's .so can
+            // load on the KVM-accelerated x86_64 emulator GitHub Actions
+            // actually runs. Never set for release builds/consumers — arm64
+            // and armv7 are the only ABIs real Android/RTL-SDR devices use.
+            if (project.hasProperty("driverRtlsdrCiAbis")) {
+                abiFilters += "x86_64"
+            }
         }
 
         externalNativeBuild {
