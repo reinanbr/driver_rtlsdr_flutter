@@ -144,6 +144,7 @@ jobs:
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: |
-            cd example
-            flutter test integration_test
+          # Must be a single line: android-emulator-runner runs each line of
+          # a multi-line script as its own separate `sh -c` invocation, so a
+          # `cd` on one line does not carry over to the next.
+          script: cd example && flutter test integration_test
