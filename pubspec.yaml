@@ -3,7 +3,7 @@ description: >
   Android driver for RTL-SDR (RTL2832U) dongles over USB-OTG: tuning, IQ
   streaming, WFM/NFM/AM/SSB demodulation with stereo and RDS, spectrum,
   recording and gain. Reusable native core (C, GPLv2).
-version: 0.2.0
+version: 0.2.1
 repository: https://github.com/reinanbr/driver_rtlsdr_flutter
 issue_tracker: https://github.com/reinanbr/driver_rtlsdr_flutter/issues
 topics:

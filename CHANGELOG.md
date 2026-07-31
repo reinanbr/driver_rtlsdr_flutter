@@ -1,3 +1,10 @@
+## 0.2.1
+
+- CI fix: `dart format` on `lib/src/downloads_channel.dart` (0.2.0 shipped
+  with one un-formatted line, failing the `analyze + unit (host)` CI job's
+  `dart format --set-exit-if-changed` check — the release itself, which
+  doesn't run that check, was unaffected).
+
 ## 0.2.0
 
 - Added fd-based recording: `shim_start_recording_fd`/`shim_start_iq_recording_fd`

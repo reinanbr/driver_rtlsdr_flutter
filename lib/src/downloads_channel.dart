@@ -54,7 +54,11 @@ class DownloadsChannel {
   /// developer's own chosen directory), which gets resolved to a shareable
   /// URI via a bundled `FileProvider` first. Exactly one of [uri]/[path]
   /// must be given.
-  Future<void> shareFile({String? uri, String? path, required String mimeType}) {
+  Future<void> shareFile({
+    String? uri,
+    String? path,
+    required String mimeType,
+  }) {
     assert((uri == null) != (path == null), 'Pass exactly one of uri or path');
     return _methods.invokeMethod<void>('shareFile', {
       'uri': uri,
