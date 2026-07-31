@@ -1,20 +1,27 @@
 package com.rtlsdrmobile.driver_rtlsdr
 
 import android.app.PendingIntent
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.hardware.usb.UsbDevice
 import android.hardware.usb.UsbDeviceConnection
 import android.hardware.usb.UsbManager
+import android.net.Uri
 import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import android.util.Log
+import androidx.core.content.FileProvider
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
 import io.flutter.plugin.common.MethodChannel.Result
+import java.io.File
+import java.io.IOException
 
 /**
  * Core of the driver_rtlsdr plugin: detects the RTL-SDR dongle via [UsbManager],
@@ -52,6 +59,11 @@ class DriverRtlsdrPlugin :
     private var eventSink: EventChannel.EventSink? = null
     private var receiverRegistered = false
     private var usbConnection: UsbDeviceConnection? = null
+
+    // fd -> MediaStore Uri for recordings opened via openDownloadsFd, kept
+    // around so finishDownloadsFd can clear MediaStore.MediaColumns.IS_PENDING
+    // once the native recorder has closed its end of the fd.
+    private val pendingDownloads = mutableMapOf<Int, Uri>()
 
     private external fun nativeOpenWithFd(fd: Int, vendorId: Int, productId: Int): Int
     private external fun nativeClose(): Int
@@ -114,8 +126,118 @@ class DriverRtlsdrPlugin :
                 requestPermission(device)
                 result.success(null)
             }
+            "openDownloadsFd" -> {
+                val fileName = call.argument<String>("fileName")
+                if (fileName == null) {
+                    result.error("INVALID_ARG", "fileName is required", null)
+                    return
+                }
+                val mimeType = call.argument<String>("mimeType") ?: "application/octet-stream"
+                val subdirectory = call.argument<String>("subdirectory") ?: "Recordings"
+                try {
+                    result.success(openDownloadsFileDescriptor(fileName, mimeType, subdirectory))
+                } catch (e: Exception) {
+                    result.error("OPEN_DOWNLOADS_FD_FAILED", e.message, null)
+                }
+            }
+            "finishDownloadsFd" -> {
+                val fd = call.argument<Int>("fd")
+                if (fd == null) {
+                    result.error("INVALID_ARG", "fd is required", null)
+                    return
+                }
+                result.success(finishDownloadsFileDescriptor(fd)?.toString())
+            }
+            "shareFile" -> {
+                try {
+                    shareFile(
+                        uriString = call.argument<String>("uri"),
+                        path = call.argument<String>("path"),
+                        mimeType = call.argument<String>("mimeType") ?: "application/octet-stream",
+                    )
+                    result.success(null)
+                } catch (e: Exception) {
+                    result.error("SHARE_FAILED", e.message, null)
+                }
+            }
             else -> result.notImplemented()
         }
+    }
+
+    // ---- Downloads (MediaStore) + sharing ----------------------------------
+
+    /**
+     * Opens a writable fd for `<Downloads>/$subdirectory/$fileName` via
+     * MediaStore (API 29+ only — the `MediaStore.Downloads` collection
+     * doesn't exist before Android 10's scoped storage, and there's no
+     * plain filesystem path into the public Downloads folder to fall back
+     * to on those older versions; callers should catch the resulting
+     * exception and fall back to their own app-specific-storage default
+     * instead). The fd is left open (`IS_PENDING = 1`, invisible to other
+     * apps) until [finishDownloadsFileDescriptor] is called.
+     */
+    private fun openDownloadsFileDescriptor(fileName: String, mimeType: String, subdirectory: String): Int {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            throw IOException("MediaStore.Downloads requires Android 10 (API 29) or higher")
+        }
+        val resolver = context.contentResolver
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.DISPLAY_NAME, fileName)
+            put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
+            put(MediaStore.MediaColumns.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/$subdirectory")
+            put(MediaStore.MediaColumns.IS_PENDING, 1)
+        }
+        val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: throw IOException("MediaStore insert into Downloads failed")
+        val pfd = resolver.openFileDescriptor(uri, "w") ?: run {
+            resolver.delete(uri, null, null)
+            throw IOException("openFileDescriptor failed for $uri")
+        }
+        val fd = pfd.detachFd()
+        pendingDownloads[fd] = uri
+        return fd
+    }
+
+    /**
+     * Clears `IS_PENDING` on the MediaStore entry tracked for `fd` (making
+     * it visible to other apps/the Files app), returning its `content://`
+     * URI for later sharing. No-op (returns null) if `fd` isn't tracked —
+     * e.g. a recording that used the legacy-fallback path instead.
+     */
+    private fun finishDownloadsFileDescriptor(fd: Int): Uri? {
+        val uri = pendingDownloads.remove(fd) ?: return null
+        val values = ContentValues().apply { put(MediaStore.MediaColumns.IS_PENDING, 0) }
+        context.contentResolver.update(uri, values, null, null)
+        return uri
+    }
+
+    /**
+     * Shares a recording via Android's native chooser. `uriString` (a
+     * `content://` URI, from a MediaStore/Downloads recording) is used
+     * directly; otherwise `path` (a plain file, from the legacy fallback or
+     * a developer's own chosen directory) is resolved to a shareable
+     * `content://` URI via [FileProvider] first — raw `file://` URIs have
+     * been blocked in share intents since API 24.
+     */
+    private fun shareFile(uriString: String?, path: String?, mimeType: String) {
+        val uri = when {
+            uriString != null -> Uri.parse(uriString)
+            path != null -> FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.driver_rtlsdr.fileprovider",
+                File(path),
+            )
+            else -> throw IllegalArgumentException("Either uri or path is required")
+        }
+        val sendIntent = Intent(Intent.ACTION_SEND).apply {
+            type = mimeType
+            putExtra(Intent.EXTRA_STREAM, uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val chooser = Intent.createChooser(sendIntent, null).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(chooser)
     }
 
     private fun findFirstDevice(): UsbDevice? = usbManager.deviceList.values.firstOrNull()

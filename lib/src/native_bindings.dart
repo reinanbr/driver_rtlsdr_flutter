@@ -142,6 +142,16 @@ class NativeBindings {
         int Function(ffi.Pointer<pkg_ffi.Utf8>)
       >('shim_start_recording');
 
+  /// Same as [shimStartRecording], but writes through an already-open file
+  /// descriptor instead of a path — for destinations with no plain
+  /// filesystem path available (e.g. Android's public Downloads folder via
+  /// MediaStore, opened Kotlin-side; see `DownloadsChannel`). No
+  /// `Utf8`/`malloc` marshalling needed since it's just an int.
+  static final int Function(int fd) shimStartRecordingFd = _lib
+      .lookupFunction<ffi.Int32 Function(ffi.Int32), int Function(int)>(
+        'shim_start_recording_fd',
+      );
+
   static final int Function() shimStopRecording = _lib
       .lookupFunction<ffi.Int32 Function(), int Function()>(
         'shim_stop_recording',
@@ -163,6 +173,13 @@ class NativeBindings {
         ffi.Int32 Function(ffi.Pointer<pkg_ffi.Utf8>),
         int Function(ffi.Pointer<pkg_ffi.Utf8>)
       >('shim_start_iq_recording');
+
+  /// Same as [shimStartIqRecording], but writes through an already-open
+  /// file descriptor instead of a path — see [shimStartRecordingFd].
+  static final int Function(int fd) shimStartIqRecordingFd = _lib
+      .lookupFunction<ffi.Int32 Function(ffi.Int32), int Function(int)>(
+        'shim_start_iq_recording_fd',
+      );
 
   static final int Function() shimStopIqRecording = _lib
       .lookupFunction<ffi.Int32 Function(), int Function()>(

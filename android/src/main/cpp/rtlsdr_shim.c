@@ -1020,6 +1020,18 @@ int32_t shim_get_spectrum_db(float *out_mag_db, int32_t num_bins) {
     return num_bins;
 }
 
+/* Current channel count (1 mono NFM/AM, 2 stereo WFM — always 2 in WFM
+ * even without pilot lock, see audio_channel_count in dsp_thread_main) at
+ * AUDIO_TARGET_HZ, the same format as the pcm_out dsp_thread is already
+ * producing. Consistent with the rest of recording because the UI
+ * (device_screen.dart) always stops an in-progress recording before
+ * switching modes — it never keeps recording with the wrong channel count
+ * mid WFM<->NFM/AM switch. */
+static int recording_channel_count(void) {
+    int channels = atomic_load_explicit(&g_state.audio_channel_count, memory_order_relaxed);
+    return (channels == 1 || channels == 2) ? channels : 1;
+}
+
 int32_t shim_start_recording(const char *file_path) {
     if (!file_path) {
         return SHIM_ERR_INVALID_ARG;
@@ -1034,21 +1046,38 @@ int32_t shim_start_recording(const char *file_path) {
         return SHIM_ERR_RECORDING_ACTIVE;
     }
 
-    /* Current channel count (1 mono NFM/AM, 2 stereo WFM — always 2 in
-     * WFM even without pilot lock, see audio_channel_count in
-     * dsp_thread_main) at AUDIO_TARGET_HZ, the same format as the pcm_out
-     * dsp_thread is already producing. Consistent with the rest of
-     * recording because the UI (device_screen.dart) always stops an
-     * in-progress recording before switching modes — it never keeps
-     * recording with the wrong channel count mid WFM<->NFM/AM switch. */
-    int channels = atomic_load_explicit(&g_state.audio_channel_count, memory_order_relaxed);
-    if (channels != 1 && channels != 2) {
-        channels = 1;
-    }
-    wav_writer_t *writer = wav_writer_open(file_path, AUDIO_TARGET_HZ, channels);
+    wav_writer_t *writer = wav_writer_open(file_path, AUDIO_TARGET_HZ, recording_channel_count());
     if (!writer) {
         pthread_mutex_unlock(&g_state.record_lock);
         LOGE("shim_start_recording: failed to open '%s'", file_path);
+        return SHIM_ERR_RECORDING_OPEN_FAILED;
+    }
+
+    g_state.record_writer = writer;
+    atomic_store(&g_state.recording_bytes_written, 0);
+    atomic_store(&g_state.recording_active, 1);
+    pthread_mutex_unlock(&g_state.record_lock);
+    return SHIM_OK;
+}
+
+int32_t shim_start_recording_fd(int32_t fd) {
+    if (fd < 0) {
+        return SHIM_ERR_INVALID_ARG;
+    }
+    if (!atomic_load(&g_state.is_streaming)) {
+        return SHIM_ERR_NOT_STREAMING;
+    }
+
+    pthread_mutex_lock(&g_state.record_lock);
+    if (atomic_load(&g_state.recording_active)) {
+        pthread_mutex_unlock(&g_state.record_lock);
+        return SHIM_ERR_RECORDING_ACTIVE;
+    }
+
+    wav_writer_t *writer = wav_writer_open_fd(fd, AUDIO_TARGET_HZ, recording_channel_count());
+    if (!writer) {
+        pthread_mutex_unlock(&g_state.record_lock);
+        LOGE("shim_start_recording_fd: failed to open fd %d", fd);
         return SHIM_ERR_RECORDING_OPEN_FAILED;
     }
 
@@ -1085,6 +1114,34 @@ int32_t shim_start_iq_recording(const char *file_path) {
     if (!writer) {
         pthread_mutex_unlock(&g_state.iq_record_lock);
         LOGE("shim_start_iq_recording: failed to open '%s'", file_path);
+        return SHIM_ERR_RECORDING_OPEN_FAILED;
+    }
+
+    g_state.iq_record_writer = writer;
+    atomic_store(&g_state.iq_recording_bytes_written, 0);
+    atomic_store(&g_state.iq_recording_active, 1);
+    pthread_mutex_unlock(&g_state.iq_record_lock);
+    return SHIM_OK;
+}
+
+int32_t shim_start_iq_recording_fd(int32_t fd) {
+    if (fd < 0) {
+        return SHIM_ERR_INVALID_ARG;
+    }
+    if (!atomic_load(&g_state.is_streaming)) {
+        return SHIM_ERR_NOT_STREAMING;
+    }
+
+    pthread_mutex_lock(&g_state.iq_record_lock);
+    if (atomic_load(&g_state.iq_recording_active)) {
+        pthread_mutex_unlock(&g_state.iq_record_lock);
+        return SHIM_ERR_RECORDING_ACTIVE;
+    }
+
+    iq_writer_t *writer = iq_writer_open_fd(fd);
+    if (!writer) {
+        pthread_mutex_unlock(&g_state.iq_record_lock);
+        LOGE("shim_start_iq_recording_fd: failed to open fd %d", fd);
         return SHIM_ERR_RECORDING_OPEN_FAILED;
     }
 

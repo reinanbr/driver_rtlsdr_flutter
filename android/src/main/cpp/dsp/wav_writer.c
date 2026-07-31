@@ -40,15 +40,7 @@ static int write_placeholder_header(FILE *fp, uint32_t sample_rate_hz, int chann
     return 0;
 }
 
-wav_writer_t *wav_writer_open(const char *path, uint32_t sample_rate_hz, int channels) {
-    if (!path || (channels != 1 && channels != 2)) {
-        return NULL;
-    }
-
-    FILE *fp = fopen(path, "wb");
-    if (!fp) {
-        return NULL;
-    }
+static wav_writer_t *wav_writer_open_fp(FILE *fp, uint32_t sample_rate_hz, int channels) {
     if (write_placeholder_header(fp, sample_rate_hz, channels) != 0) {
         fclose(fp);
         return NULL;
@@ -63,6 +55,30 @@ wav_writer_t *wav_writer_open(const char *path, uint32_t sample_rate_hz, int cha
     w->channels = channels;
     w->data_bytes_written = 0;
     return w;
+}
+
+wav_writer_t *wav_writer_open(const char *path, uint32_t sample_rate_hz, int channels) {
+    if (!path || (channels != 1 && channels != 2)) {
+        return NULL;
+    }
+
+    FILE *fp = fopen(path, "wb");
+    if (!fp) {
+        return NULL;
+    }
+    return wav_writer_open_fp(fp, sample_rate_hz, channels);
+}
+
+wav_writer_t *wav_writer_open_fd(int fd, uint32_t sample_rate_hz, int channels) {
+    if (fd < 0 || (channels != 1 && channels != 2)) {
+        return NULL;
+    }
+
+    FILE *fp = fdopen(fd, "wb");
+    if (!fp) {
+        return NULL;
+    }
+    return wav_writer_open_fp(fp, sample_rate_hz, channels);
 }
 
 int wav_writer_write(wav_writer_t *w, const int16_t *pcm, size_t num_frames) {

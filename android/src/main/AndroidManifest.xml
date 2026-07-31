@@ -7,4 +7,24 @@
          app") — a plugin/library module cannot contribute intent-filters
          to an Activity that isn't its own. -->
     <uses-feature android:name="android.hardware.usb.host" android:required="true" />
+
+    <application>
+        <!-- Lets a plain-file recording (legacy-Android Downloads fallback,
+             or a developer's own buildFilePath/defaultRecordingPath) be
+             shared via Intent.ACTION_SEND — Android has blocked raw
+             file:// URIs in share intents since API 24. Authority is
+             namespaced per-plugin so it can't collide with the host app's
+             own FileProvider or another plugin's. MediaStore-backed
+             (Downloads) recordings already have a content:// URI and don't
+             need this. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.driver_rtlsdr.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/driver_rtlsdr_file_paths" />
+        </provider>
+    </application>
 </manifest>

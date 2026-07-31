@@ -1,3 +1,25 @@
+## 0.2.0
+
+- Added fd-based recording: `shim_start_recording_fd`/`shim_start_iq_recording_fd`
+  (native, `rtlsdr_shim.c`/`.h`) and `wav_writer_open_fd`/`iq_writer_open_fd`
+  (`fdopen` instead of `fopen`, `android/src/main/cpp/dsp/`), plus
+  `NativeBindings.shimStartRecordingFd`/`shimStartIqRecordingFd` — for
+  writing to destinations with no plain filesystem path, like Android's
+  scoped-storage-gated public Downloads folder.
+- Added `DownloadsChannel`: `openDownloadsFd`/`finishDownloadsFd` (Kotlin
+  `MediaStore.Downloads` insert + `ContentResolver.openFileDescriptor`,
+  API 29+ only — there's no `MediaStore.Downloads` collection on older
+  versions, callers should fall back to their own path-based default) and
+  `shareFile` (Android's native share sheet — a `content://` URI shares
+  directly, a plain path is resolved to one first via a new bundled
+  `FileProvider`, since raw `file://` URIs have been blocked in share
+  intents since API 24).
+- New `<provider>` (`${applicationId}.driver_rtlsdr.fileprovider`) +
+  `res/xml/driver_rtlsdr_file_paths.xml` in `AndroidManifest.xml`, scoped to
+  the app-specific external storage `Recordings` directory this driver's
+  path-based recording already writes into. No new *permission* needed for
+  either the MediaStore or FileProvider paths.
+
 ## 0.1.2
 
 - CI: fixed pub.dev auto-publish, which had silently failed for every

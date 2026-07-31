@@ -9,11 +9,14 @@
 ///
 /// ## What this package does NOT do
 ///
-/// By design, to keep the driver focused: it has no UI, doesn't manage a
+/// By design, to keep the driver focused: it has no UI and doesn't manage a
 /// foreground service (keeping the process alive with the app in the background
-/// during streaming — that's a UX decision for each consuming app), and doesn't
-/// decide where to save recordings (`shim_start_recording` receives an
-/// absolute path — the app chooses where, typically via `path_provider`).
+/// during streaming — that's a UX decision for each consuming app). It does
+/// offer a mechanism for two specific storage destinations — a plain
+/// absolute path (`shim_start_recording`, chosen by the app, typically via
+/// `path_provider`) or the public Downloads folder via MediaStore
+/// ([DownloadsChannel.openDownloadsFd] + `shim_start_recording_fd`) — the
+/// choice of which, and any other destination, remains the app's.
 ///
 /// ## How to build an app on top of it
 ///
@@ -37,6 +40,7 @@
 library;
 
 export 'src/demod_mode.dart';
+export 'src/downloads_channel.dart';
 export 'src/native_bindings.dart';
 export 'src/native_library.dart';
 export 'src/shim_types.dart';

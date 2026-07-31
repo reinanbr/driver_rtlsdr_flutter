@@ -7,6 +7,16 @@ struct iq_writer {
     FILE *fp;
 };
 
+static iq_writer_t *iq_writer_open_fp(FILE *fp) {
+    iq_writer_t *w = (iq_writer_t *)malloc(sizeof(iq_writer_t));
+    if (!w) {
+        fclose(fp);
+        return NULL;
+    }
+    w->fp = fp;
+    return w;
+}
+
 iq_writer_t *iq_writer_open(const char *path) {
     if (!path) {
         return NULL;
@@ -15,13 +25,18 @@ iq_writer_t *iq_writer_open(const char *path) {
     if (!fp) {
         return NULL;
     }
-    iq_writer_t *w = (iq_writer_t *)malloc(sizeof(iq_writer_t));
-    if (!w) {
-        fclose(fp);
+    return iq_writer_open_fp(fp);
+}
+
+iq_writer_t *iq_writer_open_fd(int fd) {
+    if (fd < 0) {
         return NULL;
     }
-    w->fp = fp;
-    return w;
+    FILE *fp = fdopen(fd, "wb");
+    if (!fp) {
+        return NULL;
+    }
+    return iq_writer_open_fp(fp);
 }
 
 int iq_writer_write(iq_writer_t *w, const uint8_t *data, size_t count) {

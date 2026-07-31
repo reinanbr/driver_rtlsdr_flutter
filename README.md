@@ -41,7 +41,15 @@ waterfall/visualization.
   `shimStopRecording`), or the raw pre-decimation I/Q stream as a
   `.cu8` file compatible with `rtl_sdr`/GNU Radio/gqrx
   (`shimStartIqRecording`/`shimStopIqRecording`) — independent of each
-  other and of `DemodMode`.
+  other and of `DemodMode`. Either can also be written straight to a
+  developer-chosen public folder (`shimStartRecordingFd`/
+  `shimStartIqRecordingFd`, taking an already-open file descriptor) — see
+  `DownloadsChannel` for the public-Downloads-folder helper built on top of
+  this, and "Recording to the public Downloads folder" below.
+- **Sharing**: hands a finished recording to Android's native share sheet
+  (`DownloadsChannel.shareFile`) — works for both a MediaStore/Downloads
+  recording and a plain-path one (resolved to a shareable URI through a
+  bundled `FileProvider`).
 - **Statistics**: IQ rate, ring buffer overflow, RF/audio level
   (`ShimStats`, via `shimGetStats`).
 
@@ -52,8 +60,13 @@ waterfall/visualization.
   streaming is a UX decision for each app — it isn't bundled here. A
   consuming app that needs this can implement its own (see
   `StreamingService.kt` in the `rtl-sdr mobile` app as a reference).
-- **Where to save recordings**: `shimStartRecording` takes an absolute
-  path — the app chooses it (typically via `path_provider`).
+- **Where to save recordings**: the driver offers the mechanism for two
+  storage destinations — a plain absolute path (`shimStartRecording`,
+  chosen by the app, typically via `path_provider`) or the public Downloads
+  folder via MediaStore (`DownloadsChannel.openDownloadsFd` +
+  `shimStartRecordingFd`) — but the choice of which, any custom
+  subdirectory/file name, and any other destination entirely, is still up
+  to the app.
 - **Presets, automatic scanning, visual carousel/tuner**: these are
   application logic built on top of this driver's API, not part of it. The
   `rtl-sdr mobile` app has reference implementations of all of this
@@ -319,6 +332,46 @@ so it opens directly in those tools (e.g. for offline analysis of a
 signal this driver doesn't demodulate). `ShimStats.iqRecordingBytesWritten`
 reports progress the same way `recordingBytesWritten` does for the WAV
 recording.
+
+**Recording to the public Downloads folder** (visible to the user in the
+Files app and to other apps, unlike the app-private paths above) — via
+Android's `MediaStore.Downloads`, API 29+ only, no storage permission
+needed:
+
+```dart
+final downloads = DownloadsChannel();
+int? fd;
+try {
+  fd = await downloads.openDownloadsFd(
+    fileName: 'capture.wav',
+    mimeType: 'audio/wav',
+    subdirectory: 'MyApp', // -> Downloads/MyApp/capture.wav
+  );
+} on PlatformException {
+  // API < 29, or MediaStore insert failed — fall back to a plain path
+  // (getApplicationDocumentsDirectory/getExternalStorageDirectory + shimStartRecording).
+}
+
+if (fd != null) {
+  NativeBindings.shimStartRecordingFd(fd);
+
+  // ... later, while still streaming:
+  NativeBindings.shimStopRecording(); // same stop call as the path-based recording
+  final contentUri = await downloads.finishDownloadsFd(fd); // clears IS_PENDING
+  if (contentUri != null) {
+    await downloads.shareFile(uri: contentUri, mimeType: 'audio/wav');
+  }
+}
+```
+
+`shimStartIqRecordingFd` is the fd-based counterpart of
+`shimStartIqRecording`, for the same Downloads workflow with a `.cu8`
+capture. A plain-path recording can be shared the same way, without ever
+calling `openDownloadsFd`/`finishDownloadsFd` — pass `path:` instead of
+`uri:` to `shareFile`, which resolves it to a shareable URI through the
+bundled `FileProvider`. `DownloadsChannel` throws `PlatformException`
+(`package:flutter/services.dart`) on failure, so catch that rather than
+`Exception`.
 
 All snippets above assume:
 

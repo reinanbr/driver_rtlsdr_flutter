@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Backs the driver_rtlsdr.fileprovider <provider> in AndroidManifest.xml.
+     Covers the app-specific external storage directory
+     core_rtlsdr's defaultRecordingPath()/defaultIqRecordingPath() write
+     into (Context.getExternalFilesDir(null) + "/Recordings") — the only
+     directory a plain-file (non-MediaStore) recording from this driver is
+     ever written to. -->
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <external-files-path name="recordings" path="Recordings/" />
+</paths>

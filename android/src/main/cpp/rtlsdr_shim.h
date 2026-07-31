@@ -146,6 +146,13 @@ int32_t shim_start_recording(const char *file_path);
 int32_t shim_stop_recording(void);
 int32_t shim_is_recording(void);
 
+/* Same as shim_start_recording(), but writes through an already-open file
+ * descriptor instead of a path — for destinations with no plain filesystem
+ * path available (e.g. Android's public Downloads folder via MediaStore/
+ * ContentResolver, opened Kotlin-side and passed down as `fd`). Takes
+ * ownership of `fd`. */
+int32_t shim_start_recording_fd(int32_t fd);
+
 /* ---- Raw I/Q recording ---------------------------------------------------
  * Dumps the interleaved 8-bit unsigned I/Q exactly as the dongle delivers
  * it — no header, same convention rtl_sdr/GNU Radio/gqrx use for ".cu8"
@@ -158,6 +165,10 @@ int32_t shim_is_recording(void);
 int32_t shim_start_iq_recording(const char *file_path);
 int32_t shim_stop_iq_recording(void);
 int32_t shim_is_iq_recording(void);
+
+/* Same as shim_start_iq_recording(), but writes through an already-open
+ * file descriptor instead of a path — see shim_start_recording_fd(). */
+int32_t shim_start_iq_recording_fd(int32_t fd);
 
 /* ---- Spectrum (Dart polls at ~20-30fps for the waterfall) --------------
  * Snapshot of the whole captured band (not the demodulator's narrow

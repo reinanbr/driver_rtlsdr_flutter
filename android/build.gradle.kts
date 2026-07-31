@@ -111,6 +111,10 @@ kotlin {
 
 dependencies {
     implementation("com.google.oboe:oboe:1.10.0")
+    // FileProvider, for sharing a plain-file recording (legacy-Android
+    // fallback or a developer's own buildFilePath) via Intent.ACTION_SEND —
+    // Android has blocked raw file:// URIs in share intents since API 24.
+    implementation("androidx.core:core-ktx:1.15.0")
     testImplementation("org.jetbrains.kotlin:kotlin-test")
     testImplementation("org.mockito:mockito-core:5.0.0")
 }

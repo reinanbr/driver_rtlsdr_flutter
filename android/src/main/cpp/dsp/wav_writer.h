@@ -22,6 +22,13 @@ typedef struct wav_writer wav_writer_t;
  * Returns NULL on error (invalid path, no write permission, etc). */
 wav_writer_t *wav_writer_open(const char *path, uint32_t sample_rate_hz, int channels);
 
+/* Same as wav_writer_open(), but writes through an already-open file
+ * descriptor (e.g. one obtained from Android's MediaStore/ContentResolver
+ * for a destination — like the public Downloads folder — with no plain
+ * filesystem path available). Takes ownership of `fd`: closing the writer
+ * closes it. */
+wav_writer_t *wav_writer_open_fd(int fd, uint32_t sample_rate_hz, int channels);
+
 /* Writes `num_frames` frames (1 frame = `channels` interleaved int16
  * samples) — `pcm` must have `num_frames * channels` valid samples.
  * Returns 0 on success, < 0 if the write didn't complete. */
