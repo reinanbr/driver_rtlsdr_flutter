@@ -5,6 +5,7 @@
 [![pub likes](https://img.shields.io/pub/likes/driver_rtlsdr)](https://pub.dev/packages/driver_rtlsdr/score)
 [![CI](https://github.com/reinanbr/driver_rtlsdr_flutter/actions/workflows/ci.yml/badge.svg)](https://github.com/reinanbr/driver_rtlsdr_flutter/actions/workflows/ci.yml)
 [![License: GPL v2 or later](https://img.shields.io/badge/license-GPLv2--or--later-blue.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22863199.svg)](https://doi.org/10.5281/zenodo.22863199)
 
 Android driver (Flutter plugin) for RTL-SDR dongles (RTL2832U chipset) over
 USB-OTG. Extracted from the [`rtl-sdr mobile`](https://github.com/reinanbr/apk_rtl_sdr_flutter) app
