@@ -1,3 +1,34 @@
+## 0.3.0
+
+- Merged the `core_rtlsdr` and `widget_rtlsdr` packages into this one.
+  `driver_rtlsdr` now ships the full stack in a single dependency:
+  - Layer 1 (unchanged): native USB/FFI driver — `NativeBindings`,
+    `UsbChannel`/`UsbState`, `DownloadsChannel`, `DemodMode`.
+  - Layer 2 (from `core_rtlsdr`): a testable radio engine —
+    `RtlSdrDriver`/`NativeRtlSdrDriver`, and the `ChangeNotifier`
+    controllers `RadioController`, `SpectrumController`, `RdsController`,
+    `RecordingController`, `ScanController`, `PresetsController`, plus
+    preset storage (`PresetsRepository`,
+    `SharedPreferencesPresetsRepository`). Test doubles
+    (`FakeRtlSdrDriver`, `FakeDownloadsChannel`,
+    `InMemoryPresetsRepository`) are exported from
+    `package:driver_rtlsdr/testing.dart`.
+  - Layer 3 (from `widget_rtlsdr`): a gqrx-inspired widget library —
+    `SpectrumScope`, `WaterfallView`, `SpectrumTuner`, `FrequencyReadout`,
+    `SignalMeter`, `PowerReadout`, per-controller panels (`GainPanel`,
+    `SquelchPanel`, `StereoRdsPanel`, `RecordingPanel`, `ScanPanel`,
+    `PresetsPanel`, `StatsPanel`, `UsbStatusBanner`), theming
+    (`RtlSdrTheme`/`RtlSdrThemeData`) and full screens
+    (`RtlSdrImmersiveScreen`, `RtlSdrSettingsScreen`,
+    `RtlSdrSettingSectionScreen`).
+  - Added dependencies: `path_provider`, `shared_preferences` (dev:
+    `path_provider_platform_interface`).
+  - All 136 tests from the three packages now run together here; no
+    breaking changes to existing `driver_rtlsdr` exports.
+  - `core_rtlsdr` and `widget_rtlsdr` are no longer needed as separate
+    dependencies — consumers of those packages should depend on
+    `driver_rtlsdr` alone going forward.
+
 ## 0.2.1
 
 - CI fix: `dart format` on `lib/src/downloads_channel.dart` (0.2.0 shipped

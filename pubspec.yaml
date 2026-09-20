@@ -1,17 +1,20 @@
 name: driver_rtlsdr
 description: >
-  Android driver for RTL-SDR (RTL2832U) dongles over USB-OTG: tuning, IQ
-  streaming, WFM/NFM/AM/SSB demodulation with stereo and RDS, spectrum,
-  recording and gain. Reusable native core (C, GPLv2).
-version: 0.2.1
+  Full RTL-SDR (RTL2832U) stack for Flutter/Android in one package: native
+  USB/FFI driver (tuning, IQ streaming, WFM/NFM/AM/SSB demodulation, stereo,
+  RDS, spectrum, recording, gain), a testable ChangeNotifier radio engine
+  (controllers, presets), and a gqrx-inspired widget library (scope,
+  waterfall, tuner, panels, screens). Reusable native core (C, GPLv2).
+  Merged from driver_rtlsdr + core_rtlsdr + widget_rtlsdr.
+version: 0.3.0
 repository: https://github.com/reinanbr/driver_rtlsdr_flutter
 issue_tracker: https://github.com/reinanbr/driver_rtlsdr_flutter/issues
 topics:
   - android
   - usb
   - ffi
-  - audio
-  - hardware
+  - radio
+  - sdr
 
 environment:
   sdk: ^3.12.2
@@ -21,11 +24,18 @@ dependencies:
   flutter:
     sdk: flutter
   ffi: ^2.2.0
+  path_provider: ^2.1.5
+  shared_preferences: ^2.5.5
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Lets tests fake path_provider's platform channel (swap
+  # PathProviderPlatform.instance) instead of touching a real device/
+  # emulator — used to test the legacy-Android Downloads fallback in
+  # RecordingController without mocking a raw MethodChannel.
+  path_provider_platform_interface: ^2.1.2
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

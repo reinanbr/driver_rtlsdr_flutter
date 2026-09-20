@@ -32,6 +32,9 @@ dependencies:
   # For choosing where PCM/raw-I/Q recordings go (shimStartRecording/
   # shimStartIqRecording take an absolute path — see README.md).
   path_provider: ^2.1.5
+  # Wires UsbState/UsbChannel and the radio-engine controllers to the
+  # widget tree (see lib/app.dart).
+  provider: ^6.1.5+1
 
 dev_dependencies:
   integration_test:

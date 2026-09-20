@@ -53,9 +53,31 @@ waterfall/visualization.
 - **Statistics**: IQ rate, ring buffer overflow, RF/audio level
   (`ShimStats`, via `shimGetStats`).
 
+## Radio engine and widgets (merged from `core_rtlsdr` / `widget_rtlsdr`)
+
+As of 0.3.0, `driver_rtlsdr` is the full stack in one package — the
+`core_rtlsdr` and `widget_rtlsdr` packages were merged in and no longer need
+to be depended on separately:
+
+- **Radio engine**: `RtlSdrDriver`/`NativeRtlSdrDriver` give the native
+  state above a plain-Dart shape, and `ChangeNotifier` controllers
+  (`RadioController`, `SpectrumController`, `RdsController`,
+  `RecordingController`, `ScanController`, `PresetsController`) turn it into
+  ready-to-use radio behavior — unit-testable with no dongle via
+  `package:driver_rtlsdr/testing.dart`'s `FakeRtlSdrDriver`.
+- **Widgets**: a gqrx-inspired library built on those controllers —
+  `SpectrumScope`, `WaterfallView`, `SpectrumTuner`, `FrequencyReadout`,
+  `SignalMeter`, `PowerReadout`, per-controller panels (`GainPanel`,
+  `SquelchPanel`, `StereoRdsPanel`, `RecordingPanel`, `ScanPanel`,
+  `PresetsPanel`, `StatsPanel`, `UsbStatusBanner`), theming
+  (`RtlSdrTheme`/`RtlSdrThemeData`) and full screens
+  (`RtlSdrImmersiveScreen`, `RtlSdrSettingsScreen`).
+
+A consuming app can still use just the raw driver layer below and build its
+own controllers/UI, or use the engine/widgets directly.
+
 ## What this package deliberately does NOT provide
 
-- **UI**: zero widgets. The consuming app builds the interface.
 - **Foreground service**: keeping the process alive in the background during
   streaming is a UX decision for each app — it isn't bundled here. A
   consuming app that needs this can implement its own (see
@@ -67,11 +89,6 @@ waterfall/visualization.
   `shimStartRecordingFd`) — but the choice of which, any custom
   subdirectory/file name, and any other destination entirely, is still up
   to the app.
-- **Presets, automatic scanning, visual carousel/tuner**: these are
-  application logic built on top of this driver's API, not part of it. The
-  `rtl-sdr mobile` app has reference implementations of all of this
-  (`lib/radio/scan_controller.dart`, `lib/widgets/spectrum_tuner.dart`,
-  etc.) that can be adapted.
 
 ## Installation
 
