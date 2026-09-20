@@ -37,16 +37,23 @@ class _RtlSdrAppState extends State<RtlSdrApp> {
       providers: [
         ChangeNotifierProvider(create: (_) => UsbState()),
         ProxyProvider<UsbState, UsbChannel>(
-          update: (_, usbState, previous) => previous ?? UsbChannel(state: usbState),
+          update: (_, usbState, previous) =>
+              previous ?? UsbChannel(state: usbState),
           dispose: (_, channel) => channel.dispose(),
         ),
         ChangeNotifierProvider(
           create: (_) => RadioController(
             _driver,
-            onStreamingStarted: () =>
-                unawaited(_platformChannel.invokeMethod('startForegroundService').catchError((_) {})),
-            onStreamingStopped: () =>
-                unawaited(_platformChannel.invokeMethod('stopForegroundService').catchError((_) {})),
+            onStreamingStarted: () => unawaited(
+              _platformChannel
+                  .invokeMethod('startForegroundService')
+                  .catchError((_) {}),
+            ),
+            onStreamingStopped: () => unawaited(
+              _platformChannel
+                  .invokeMethod('stopForegroundService')
+                  .catchError((_) {}),
+            ),
           ),
         ),
         ChangeNotifierProvider(

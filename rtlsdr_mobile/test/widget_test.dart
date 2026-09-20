@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rtlsdr_mobile/app.dart';
 
 void main() {
-  testWidgets('App builds and shows the device screen', (WidgetTester tester) async {
+  testWidgets('App builds and shows the device screen', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(const RtlSdrApp());
     await tester.pump();
 

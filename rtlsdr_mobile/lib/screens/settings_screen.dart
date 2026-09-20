@@ -89,10 +89,15 @@ class _RecordingsManagerState extends State<_RecordingsManager> {
       }
       final files = await dir
           .list()
-          .where((entry) => entry is File && entry.path.toLowerCase().endsWith('.wav'))
+          .where(
+            (entry) =>
+                entry is File && entry.path.toLowerCase().endsWith('.wav'),
+          )
           .cast<File>()
           .toList();
-      files.sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+      files.sort(
+        (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
+      );
       setState(() {
         _files = files;
         _error = null;
@@ -111,10 +116,18 @@ class _RecordingsManagerState extends State<_RecordingsManager> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Apagar gravação'),
-        content: Text('Apagar "${_fileName(file)}"? Essa ação não pode ser desfeita.'),
+        content: Text(
+          'Apagar "${_fileName(file)}"? Essa ação não pode ser desfeita.',
+        ),
         actions: [
-          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.of(dialogContext).pop(true), child: const Text('Apagar')),
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Apagar'),
+          ),
         ],
       ),
     );
@@ -139,7 +152,10 @@ class _RecordingsManagerState extends State<_RecordingsManager> {
       );
     }
     if (_error != null) {
-      return Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error));
+      return Text(
+        _error!,
+        style: TextStyle(color: Theme.of(context).colorScheme.error),
+      );
     }
     if (_files.isEmpty) {
       return const Padding(
@@ -155,7 +171,11 @@ class _RecordingsManagerState extends State<_RecordingsManager> {
           Card(
             margin: const EdgeInsets.symmetric(vertical: 4),
             child: ListTile(
-              title: Text(_fileName(file), maxLines: 1, overflow: TextOverflow.ellipsis),
+              title: Text(
+                _fileName(file),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
               subtitle: Text(
                 '${_formatSize(file.lengthSync())} · ${file.statSync().modified.toString().substring(0, 16)}',
               ),
@@ -191,12 +211,19 @@ class _AboutSection extends StatelessWidget {
       children: [
         Row(
           children: [
-            Icon(Icons.radio, size: 40, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.radio,
+              size: 40,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
-                Text('RTL-SDR Mobile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                Text(
+                  'RTL-SDR Mobile',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
                 Text('Versão 1.0.0'),
               ],
             ),
@@ -217,9 +244,15 @@ class _AboutSection extends StatelessWidget {
           'que o app inteiro seja distribuído sob GPL.',
         ),
         const SizedBox(height: 12),
-        Text('Componentes de terceiros', style: Theme.of(context).textTheme.titleSmall),
+        Text(
+          'Componentes de terceiros',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
         const SizedBox(height: 4),
-        const _ThirdPartyRow(name: 'librtlsdr 2.1.0', license: 'GPLv2-or-later'),
+        const _ThirdPartyRow(
+          name: 'librtlsdr 2.1.0',
+          license: 'GPLv2-or-later',
+        ),
         const _ThirdPartyRow(name: 'libusb 1.0.30', license: 'LGPL-2.1'),
         const _ThirdPartyRow(name: 'KissFFT', license: 'BSD-3-Clause'),
         const _ThirdPartyRow(name: 'Oboe', license: 'Apache-2.0'),
