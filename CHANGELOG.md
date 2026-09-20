@@ -1,3 +1,9 @@
+## 0.3.1
+
+- No code changes. Adds `.zenodo.json` (release archiving metadata) and
+  re-tags to trigger Zenodo's GitHub integration, now enabled for this
+  repo, so this and future releases are archived on Zenodo with a DOI.
+
 ## 0.3.0
 
 - Merged the `core_rtlsdr` and `widget_rtlsdr` packages into this one.
