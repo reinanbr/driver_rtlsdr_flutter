@@ -1,0 +1,31 @@
+{
+  "title": "driver_rtlsdr: a full RTL-SDR (RTL2832U) stack for Flutter/Android",
+  "description": "<p>End-to-end RTL-SDR (RTL2832U) stack for Flutter/Android in a single package: native USB/FFI driver (tuning, IQ streaming, WFM/NFM/AM/SSB demodulation with stereo and RDS, spectrum, recording, gain), a testable ChangeNotifier radio engine (controllers, presets), and a gqrx-inspired widget library (spectrum scope, waterfall, tuner, panels, screens). As of v0.3.0, merges the previously separate <code>core_rtlsdr</code> and <code>widget_rtlsdr</code> packages into this one. Native core in C, GPLv2.</p>",
+  "creators": [
+    {
+      "name": "reinanbr",
+      "affiliation": ""
+    }
+  ],
+  "access_right": "open",
+  "license": "GPL-2.0-or-later",
+  "upload_type": "software",
+  "keywords": [
+    "flutter",
+    "android",
+    "rtl-sdr",
+    "rtl2832u",
+    "sdr",
+    "software-defined-radio",
+    "usb-otg",
+    "ffi",
+    "dsp"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://pub.dev/packages/driver_rtlsdr",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    }
+  ]
+}
