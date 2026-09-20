@@ -10,8 +10,11 @@ enum _DragTarget { tune, leftEdge, rightEdge }
 /// [WaterfallView], driven by one shared gesture surface instead of
 /// [SpectrumScope] and [WaterfallView] tuned independently:
 ///
-/// - Tap or drag anywhere to retune ([onFrequencyChanged]), same gesture
-///   [SpectrumScope] supports alone.
+/// - Tap anywhere to retune exactly there ([onFrequencyChanged]); drag
+///   horizontally to pan instead — same feel as panning a horizontal list
+///   (drag right "pulls" lower frequencies toward the center) rather than
+///   jumping straight to the finger's position, so a sweep can keep panning
+///   past the edge of the visible span instead of pinning at it.
 /// - Drag either edge of the shaded passband band to resize the demod
 ///   filter width live ([onPassbandChanged]) — the same grab-the-band
 ///   gesture gqrx's own combined view supports. Display/interaction hook
@@ -115,8 +118,15 @@ class _SpectrumTunerState extends State<SpectrumTuner> {
   // gets the true down position with no slop delay.
   static const double _edgeHitToleranceLogicalPx = 18;
 
+  /// How far the finger has to move before a touch-down on the tune area
+  /// commits to a pan-drag instead of resolving as a tap on release — mirrors
+  /// [kTouchSlop], which is what `GestureDetector`'s Tap-vs-Drag arena uses.
+  static const double _tuneDragSlopLogicalPx = 18;
+
   final Map<int, Offset> _pointers = {};
   _DragTarget? _dragTarget;
+  Offset? _tuneDownPosition;
+  bool _tuneDragging = false;
   double? _zoomBaseDistance;
   int _zoomBaseSpanHz = 0;
 
@@ -140,9 +150,22 @@ class _SpectrumTunerState extends State<SpectrumTuner> {
     _pointers[event.pointer] = event.localPosition;
     if (_pointers.length == 1) {
       _dragTarget = _dragTargetAt(event.localPosition.dx, width);
-      _applyDrag(event.localPosition.dx, width);
+      switch (_dragTarget) {
+        case _DragTarget.tune:
+          // Don't tune yet — wait for either a pan past the slop (handled
+          // in _onPointerMove) or a release within it, which resolves as a
+          // tap (_onPointerUp).
+          _tuneDownPosition = event.localPosition;
+          _tuneDragging = false;
+        case _DragTarget.leftEdge:
+        case _DragTarget.rightEdge:
+          _resizePassbandAt(event.localPosition.dx, width);
+        case null:
+          break;
+      }
     } else if (_pointers.length == 2) {
       _dragTarget = null;
+      _tuneDownPosition = null;
       final positions = _pointers.values.toList();
       _zoomBaseDistance = (positions[0].dx - positions[1].dx).abs().clamp(
         1.0,
@@ -154,6 +177,7 @@ class _SpectrumTunerState extends State<SpectrumTuner> {
 
   void _onPointerMove(PointerMoveEvent event, double width) {
     if (!_pointers.containsKey(event.pointer)) return;
+    final previous = _pointers[event.pointer]!;
     _pointers[event.pointer] = event.localPosition;
 
     if (_pointers.length >= 2) {
@@ -163,34 +187,50 @@ class _SpectrumTunerState extends State<SpectrumTuner> {
         double.infinity,
       );
       _zoom(distance / (_zoomBaseDistance ?? distance));
-    } else {
-      _applyDrag(event.localPosition.dx, width);
+      return;
     }
-  }
 
-  void _onPointerUp(PointerEvent event, double width) {
-    _pointers.remove(event.pointer);
-    if (_pointers.length == 1) {
-      final remaining = _pointers.values.single;
-      _dragTarget = _dragTargetAt(remaining.dx, width);
-    } else if (_pointers.isEmpty) {
-      _dragTarget = null;
-      _zoomBaseDistance = null;
-    }
-  }
-
-  void _applyDrag(double dx, double width) {
     switch (_dragTarget) {
       case _DragTarget.tune:
-        _tuneAt(dx, width);
+        final down = _tuneDownPosition;
+        if (!_tuneDragging) {
+          if (down == null ||
+              (event.localPosition.dx - down.dx).abs() <
+                  _tuneDragSlopLogicalPx) {
+            return;
+          }
+          _tuneDragging = true;
+        }
+        _panByDelta(event.localPosition.dx - previous.dx, width);
       case _DragTarget.leftEdge:
       case _DragTarget.rightEdge:
-        _resizePassbandAt(dx, width);
+        _resizePassbandAt(event.localPosition.dx, width);
       case null:
         break;
     }
   }
 
+  void _onPointerUp(PointerEvent event, double width) {
+    final resolvesAsTap = _dragTarget == _DragTarget.tune && !_tuneDragging;
+    final tapPosition = _pointers[event.pointer];
+    _pointers.remove(event.pointer);
+    if (resolvesAsTap && tapPosition != null) {
+      _tuneAt(tapPosition.dx, width);
+    }
+    if (_pointers.length == 1) {
+      final remaining = _pointers.values.single;
+      _dragTarget = _dragTargetAt(remaining.dx, width);
+      _tuneDownPosition = remaining;
+      _tuneDragging = false;
+    } else if (_pointers.isEmpty) {
+      _dragTarget = null;
+      _tuneDownPosition = null;
+      _tuneDragging = false;
+      _zoomBaseDistance = null;
+    }
+  }
+
+  /// Absolute tap-to-tune: sets the frequency exactly under the finger.
   void _tuneAt(double dx, double width) {
     final onFrequencyChanged = widget.onFrequencyChanged;
     if (onFrequencyChanged == null) return;
@@ -201,6 +241,21 @@ class _SpectrumTunerState extends State<SpectrumTuner> {
     );
     onFrequencyChanged(
       frequencyHz.clamp(widget.minFrequencyHz, widget.maxFrequencyHz),
+    );
+  }
+
+  /// Relative pan-to-tune: advances by the incremental pointer delta since
+  /// the last move, not by the finger's absolute position — dragging right
+  /// "pulls" lower frequencies toward the center, same direction as panning
+  /// a horizontal list, and a continued drag keeps sweeping past the edge
+  /// of the visible span instead of pinning there.
+  void _panByDelta(double deltaDx, double width) {
+    final onFrequencyChanged = widget.onFrequencyChanged;
+    if (onFrequencyChanged == null || widget.spanHz == 0) return;
+    final deltaHz = (-deltaDx / width * widget.spanHz).round();
+    final newFrequencyHz = widget.centerFrequencyHz + deltaHz;
+    onFrequencyChanged(
+      newFrequencyHz.clamp(widget.minFrequencyHz, widget.maxFrequencyHz),
     );
   }
 

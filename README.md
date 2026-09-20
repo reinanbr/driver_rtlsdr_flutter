@@ -77,12 +77,27 @@ to be depended on separately:
 A consuming app can still use just the raw driver layer below and build its
 own controllers/UI, or use the engine/widgets directly.
 
+## Screenshots
+
+`rtlsdr_mobile/` in this repo is a complete, real reference app built on
+this package — USB permission flow, tuning, WFM stereo/RDS, band scan,
+presets, recording, and the spectrum scope + waterfall, all live against a
+real RTL2832U dongle over USB-OTG:
+
+<p>
+  <img src="rtlsdr_mobile/docs/screenshots/01_splash.png" width="200" alt="Splash screen">
+  <img src="rtlsdr_mobile/docs/screenshots/02_device_ready.png" width="200" alt="Dongle detected, tuning card">
+  <img src="rtlsdr_mobile/docs/screenshots/03_streaming.png" width="200" alt="Streaming with stereo locked">
+  <img src="rtlsdr_mobile/docs/screenshots/04_spectrum.png" width="200" alt="Frequency readout, spectrum scope and waterfall">
+</p>
+
 ## What this package deliberately does NOT provide
 
 - **Foreground service**: keeping the process alive in the background during
   streaming is a UX decision for each app — it isn't bundled here. A
   consuming app that needs this can implement its own (see
-  `StreamingService.kt` in the `rtl-sdr mobile` app as a reference).
+  `rtlsdr_mobile/android/.../StreamingService.kt` in this repo's reference
+  app).
 - **Where to save recordings**: the driver offers the mechanism for two
   storage destinations — a plain absolute path (`shimStartRecording`,
   chosen by the app, typically via `path_provider`) or the public Downloads

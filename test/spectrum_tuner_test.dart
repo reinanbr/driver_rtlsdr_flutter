@@ -59,23 +59,46 @@ void main() {
     );
   });
 
-  testWidgets('dragging from the middle retunes, does not resize passband', (
+  testWidgets(
+    'dragging from the middle pans by the drag delta, does not resize passband',
+    (tester) async {
+      int? tuned;
+      int? passband;
+      await tester.pumpWidget(
+        _harness(
+          passbandHz: 200000,
+          onFrequencyChanged: (f) => tuned = f,
+          onPassbandChanged: (p) => passband = p,
+        ),
+      );
+
+      // Center of the widget (150,100) is far from either passband edge
+      // (at x=120/180 for a 200kHz band over a 1MHz span) — should tune.
+      final gesture = await tester.startGesture(const Offset(150, 100));
+      await gesture.moveTo(const Offset(210, 100));
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+
+      // Panning is relative to the drag delta, not the finger's absolute
+      // position — dragging right by 60px (a fifth of the 300px width)
+      // "pulls" lower frequencies toward the center, same direction as
+      // panning a horizontal list, so the frequency goes *down*.
+      expect(tuned, 100000000 - (60 / 300 * 1000000).round());
+      expect(passband, isNull);
+    },
+  );
+
+  testWidgets('a drag under the tune slop still resolves as a tap on release', (
     tester,
   ) async {
     int? tuned;
-    int? passband;
-    await tester.pumpWidget(
-      _harness(
-        passbandHz: 200000,
-        onFrequencyChanged: (f) => tuned = f,
-        onPassbandChanged: (p) => passband = p,
-      ),
-    );
+    await tester.pumpWidget(_harness(onFrequencyChanged: (f) => tuned = f));
 
-    // Center of the widget (150,100) is far from either passband edge
-    // (at x=120/180 for a 200kHz band over a 1MHz span) — should tune.
-    final gesture = await tester.startGesture(const Offset(150, 100));
-    await gesture.moveTo(const Offset(210, 100));
+    // Real-world finger jitter: moves a few px (well under the 18px tune
+    // slop) before lifting — should tune to the release point, not pan.
+    final gesture = await tester.startGesture(const Offset(225, 100));
+    await gesture.moveTo(const Offset(228, 100));
     await tester.pump();
     await gesture.up();
     await tester.pump();
@@ -85,10 +108,9 @@ void main() {
       frequencyAtFraction(
         centerFrequencyHz: 100000000,
         spanHz: 1000000,
-        fraction: 210 / 300,
+        fraction: 228 / 300,
       ),
     );
-    expect(passband, isNull);
   });
 
   testWidgets('dragging a passband edge resizes it, does not retune', (

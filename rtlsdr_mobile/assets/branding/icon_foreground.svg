@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="wave" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#00E5D1"/>
+      <stop offset="100%" stop-color="#39FF88"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Broadcast waves: three nested arcs above the antenna node, domed
+       upward (sweep-flag=0 draws right->top->left, not the long way under). -->
+  <path d="M 729.9,312.0 A 235,235 0 0 0 294.1,312.0" fill="none"
+        stroke="url(#wave)" stroke-width="24" stroke-linecap="round" opacity="0.5"/>
+  <path d="M 665.0,338.2 A 165,165 0 0 0 359.0,338.2" fill="none"
+        stroke="url(#wave)" stroke-width="28" stroke-linecap="round" opacity="0.75"/>
+  <path d="M 600.1,364.4 A 95,95 0 0 0 423.9,364.4" fill="none"
+        stroke="url(#wave)" stroke-width="32" stroke-linecap="round"/>
+
+  <!-- Antenna node -->
+  <circle cx="512" cy="400" r="36" fill="#EAFBF8"/>
+  <circle cx="512" cy="400" r="36" fill="none" stroke="#00E5D1" stroke-width="10"/>
+
+  <!-- Mast -->
+  <rect x="500" y="400" width="24" height="130" rx="8" fill="#EAFBF8"/>
+
+  <!-- Spectrum trace: the app's own FFT-scope silhouette, well clear of
+       the mast, grounding the mark as "SDR" rather than a generic
+       broadcast/wifi icon. -->
+  <polyline points="
+    250,660 300,648 350,654 400,626 450,600 500,528 550,600
+    600,626 650,654 700,648 750,660"
+    fill="none" stroke="#39FF88" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="250" y1="700" x2="750" y2="700" stroke="#1C6E5E" stroke-width="14" stroke-linecap="round" opacity="0.6"/>
+</svg>

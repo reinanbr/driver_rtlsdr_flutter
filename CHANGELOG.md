@@ -1,3 +1,26 @@
+## 0.3.2
+
+- Fixed `SpectrumScope`/`SpectrumTuner` drag-to-tune: it used to retune to
+  the finger's *absolute* position on every drag update, which made a
+  slow, deliberate sweep across the band impossible — the smallest hand
+  tremor and the whole visible span jumped. Dragging now pans by the
+  incremental *delta* instead (drag right "pulls" lower frequencies
+  toward the center, like panning a horizontal list), restoring the feel
+  of the original pre-merge app widget this regressed from. Tap-to-tune
+  (retune exactly under a single tap) is unchanged.
+- Added `FrequencyReadout.minStepHz`: sets the Hz value of the *rightmost*
+  digit shown (default 1, unchanged). Pair with a lower `digitCount` (e.g.
+  `digitCount: 7, minStepHz: 1000`) to drop the ones/tens/hundreds-of-Hz
+  digits RTL-SDR tuning never needs — they always read "0" in practice —
+  leaving fewer, bigger digit cells that are easier to tap.
+- Added `rtlsdr_mobile/` to this repo: a complete reference app (USB
+  permission flow, tuning, WFM stereo/RDS, band scan, presets, recording
+  with a foreground service, spectrum scope + waterfall) built on this
+  package, with its own branding (adaptive launcher icon + native splash
+  screen) — screenshots in the main README. Previously an external
+  sibling project; now bundled here alongside the existing minimal
+  `example/`.
+
 ## 0.3.1
 
 - No code changes. Adds `.zenodo.json` (release archiving metadata) and

@@ -8,14 +8,17 @@ import '../spectrum_geometry.dart';
 /// [SpectrumController] — listens to it internally, so just drop this in
 /// and it updates itself at the controller's polling rate.
 ///
-/// Drag horizontally to retune: [onFrequencyChanged] receives the
-/// frequency under the pointer, computed from [centerFrequencyHz] and
-/// [spanHz] (pass `radio.frequencyHz` and `radio.sampleRateHz`), clamped to
-/// [minFrequencyHz]/[maxFrequencyHz] (defaulting to [RtlSdrFrequencyRange]'s
-/// R820T/R820T2 bounds) so this never reports a frequency the tuner can't
-/// lock to. Pass [passbandHz] (see [defaultPassbandHzFor]) to shade the
-/// current demod filter's passband around the tuned frequency, the same
-/// cue gqrx/CubicSDR both show.
+/// Tap to retune exactly under the finger ([onFrequencyChanged]); drag
+/// horizontally to pan instead, relative to the drag delta rather than the
+/// finger's absolute position — dragging right "pulls" lower frequencies
+/// toward the center, same feel as panning a horizontal list, so a
+/// continued drag keeps sweeping past the edge of the visible span instead
+/// of pinning at it. Clamped to [minFrequencyHz]/[maxFrequencyHz]
+/// (defaulting to [RtlSdrFrequencyRange]'s R820T/R820T2 bounds) so this
+/// never reports a frequency the tuner can't lock to. Pass [passbandHz]
+/// (see [defaultPassbandHzFor]) to shade the current demod filter's
+/// passband around the tuned frequency, the same cue gqrx/CubicSDR both
+/// show.
 class SpectrumScope extends StatelessWidget {
   const SpectrumScope({
     super.key,
@@ -50,6 +53,7 @@ class SpectrumScope extends StatelessWidget {
   final bool showFrequencyAxis;
   final ValueChanged<int>? onFrequencyChanged;
 
+  /// Absolute tap-to-tune: the frequency exactly under [dx].
   int _frequencyAt(double dx, double width) {
     final frequencyHz = frequencyAtFraction(
       centerFrequencyHz: centerFrequencyHz,
@@ -57,6 +61,13 @@ class SpectrumScope extends StatelessWidget {
       fraction: dx / width,
     );
     return frequencyHz.clamp(minFrequencyHz, maxFrequencyHz);
+  }
+
+  /// Relative pan-to-tune: advances by the incremental drag delta rather
+  /// than the finger's absolute position.
+  int _frequencyAfterPan(double deltaDx, double width) {
+    final deltaHz = (-deltaDx / width * spanHz).round();
+    return (centerFrequencyHz + deltaHz).clamp(minFrequencyHz, maxFrequencyHz);
   }
 
   @override
@@ -73,7 +84,7 @@ class SpectrumScope extends StatelessWidget {
           onHorizontalDragUpdate: onFrequencyChanged == null
               ? null
               : (details) => onFrequencyChanged!(
-                  _frequencyAt(details.localPosition.dx, constraints.maxWidth),
+                  _frequencyAfterPan(details.delta.dx, constraints.maxWidth),
                 ),
           child: ListenableBuilder(
             listenable: spectrum,

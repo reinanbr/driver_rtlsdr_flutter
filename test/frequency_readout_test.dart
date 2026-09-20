@@ -101,6 +101,34 @@ void main() {
     },
   );
 
+  testWidgets(
+    'minStepHz drops trailing digits and steps by the last visible place',
+    (tester) async {
+      int? changed;
+      await tester.pumpWidget(
+        wrap(
+          FrequencyReadout(
+            frequencyHz: 91900000,
+            digitCount: 7,
+            minStepHz: 1000,
+            onChanged: (hz) => changed = hz,
+          ),
+        ),
+      );
+
+      // 91900000 Hz / 1000 = 91900, padded to 7 digits: "0091900" — only
+      // 7 cells, no ones/tens/hundreds-of-Hz digit shown at all.
+      expect(find.text('9'), findsNWidgets(2));
+      expect(find.text('.'), findsNWidgets(2));
+
+      // Last visible digit is the thousands place — stepping it moves by
+      // 1000 Hz, not 1 Hz.
+      await tester.tap(find.byIcon(Icons.keyboard_arrow_up).last);
+      await tester.pump();
+      expect(changed, 91901000);
+    },
+  );
+
   testWidgets('clamps to minHz/maxHz', (tester) async {
     int? changed;
     await tester.pumpWidget(

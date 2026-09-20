@@ -17,6 +17,14 @@ import '../theme/rtlsdr_theme_data.dart';
 /// tuner range); digits with no significant value yet (leading zeros) are
 /// dimmed, exactly like gqrx.
 ///
+/// [minStepHz] is the Hz value of the *rightmost* digit shown — 1 by
+/// default (matching [digitCount]'s own doc above), so the reading goes
+/// down to single-Hz resolution. RTL-SDR tuning realistically never needs
+/// that: pass e.g. `1000` (with `digitCount` lowered to match, e.g. 7) to
+/// drop the ones/tens/hundreds-of-Hz digits — they'd read `0` forever in
+/// practice — leaving fewer, larger digit cells with bigger tap targets
+/// for the same on-screen width. Must be a power of 10.
+///
 /// [minHz]/[maxHz] default to [RtlSdrFrequencyRange]'s R820T/R820T2 bounds,
 /// so dragging/scrolling/stepping a digit can never ask the tuner for a
 /// frequency it can't lock to — pass a different tuner's range (or `null`
@@ -27,6 +35,7 @@ class FrequencyReadout extends StatefulWidget {
     required this.frequencyHz,
     required this.onChanged,
     this.digitCount = 10,
+    this.minStepHz = 1,
     this.minHz = RtlSdrFrequencyRange.minHz,
     this.maxHz = RtlSdrFrequencyRange.maxHz,
     this.fontSize = 36,
@@ -35,6 +44,7 @@ class FrequencyReadout extends StatefulWidget {
   final int frequencyHz;
   final ValueChanged<int> onChanged;
   final int digitCount;
+  final int minStepHz;
   final int? minHz;
   final int? maxHz;
   final double fontSize;
@@ -59,7 +69,7 @@ class _FrequencyReadoutState extends State<FrequencyReadout> {
 
   int _placeValue(int digitIndex) {
     final exponent = widget.digitCount - 1 - digitIndex;
-    var value = 1;
+    var value = widget.minStepHz;
     for (var i = 0; i < exponent; i++) {
       value *= 10;
     }
@@ -82,8 +92,11 @@ class _FrequencyReadoutState extends State<FrequencyReadout> {
   @override
   Widget build(BuildContext context) {
     final theme = RtlSdrTheme.of(context);
-    final digitChars = widget.frequencyHz
-        .clamp(0, _maxRepresentable())
+    final displayUnits = (widget.frequencyHz ~/ widget.minStepHz).clamp(
+      0,
+      _maxRepresentable(),
+    );
+    final digitChars = displayUnits
         .toString()
         .padLeft(widget.digitCount, '0')
         .split('');
