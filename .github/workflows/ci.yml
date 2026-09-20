@@ -33,6 +33,15 @@ jobs:
       - name: Install plugin dependencies
         run: flutter pub get
 
+      # `flutter pub get` at the plugin root also auto-resolves example/
+      # (Flutter's tooling special-cases a plugin's own "example" dir) but
+      # NOT rtlsdr_mobile/ — without this, `flutter analyze .` below finds
+      # rtlsdr_mobile/*.dart with no resolved package config and reports
+      # every import from provider/share_plus as a bogus "doesn't exist".
+      - name: Install rtlsdr_mobile app dependencies
+        working-directory: rtlsdr_mobile
+        run: flutter pub get
+
       - name: Check formatting
         run: dart format --output=none --set-exit-if-changed .
 
@@ -52,6 +61,14 @@ jobs:
 
       - name: Run example app widget tests
         working-directory: example
+        run: flutter test
+
+      - name: Analyze rtlsdr_mobile app
+        working-directory: rtlsdr_mobile
+        run: flutter analyze --fatal-infos
+
+      - name: Run rtlsdr_mobile app tests
+        working-directory: rtlsdr_mobile
         run: flutter test
 
   # ---------------------------------------------------------------------------

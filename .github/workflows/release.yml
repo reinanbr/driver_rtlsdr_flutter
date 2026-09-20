@@ -25,12 +25,24 @@ jobs:
           cache: true
 
       - run: flutter pub get
+
+      # `flutter pub get` above also auto-resolves example/ (Flutter
+      # special-cases a plugin's own "example" dir) but not rtlsdr_mobile/
+      # — without this, `flutter analyze` below finds rtlsdr_mobile/*.dart
+      # with no resolved package config and fails on every provider/
+      # share_plus import.
+      - working-directory: rtlsdr_mobile
+        run: flutter pub get
+
       - run: flutter analyze
       - run: flutter test
 
       - working-directory: example
         run: flutter pub get
       - working-directory: example
+        run: flutter test
+
+      - working-directory: rtlsdr_mobile
         run: flutter test
 
   build-and-release:
