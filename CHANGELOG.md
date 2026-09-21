@@ -1,3 +1,14 @@
+## 0.3.3
+
+- CI: release workflow now also builds `rtlsdr_mobile`'s release APK and
+  publishes it as a standalone GitHub release asset (previously only the
+  `example/` app's APK was built, bundled inside the release zip).
+- CI: each release now also publishes a fixed-name `rtlsdr_mobile-latest.apk`
+  and a `latest.json` manifest (version, download URLs, sha256), so
+  `.../releases/latest/download/rtlsdr_mobile-latest.apk` and
+  `.../releases/latest/download/latest.json` always resolve to the newest
+  build regardless of version — usable as stable links from an external site.
+
 ## 0.3.2
 
 - Fixed `SpectrumScope`/`SpectrumTuner` drag-to-tune: it used to retune to

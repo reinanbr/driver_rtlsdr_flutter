@@ -6,7 +6,7 @@ description: >
   (controllers, presets), and a gqrx-inspired widget library (scope,
   waterfall, tuner, panels, screens). Reusable native core (C, GPLv2).
   Merged from driver_rtlsdr + core_rtlsdr + widget_rtlsdr.
-version: 0.3.2
+version: 0.3.3
 repository: https://github.com/reinanbr/driver_rtlsdr_flutter
 issue_tracker: https://github.com/reinanbr/driver_rtlsdr_flutter/issues
 topics:

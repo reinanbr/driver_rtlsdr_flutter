@@ -73,8 +73,16 @@ jobs:
         working-directory: example
         run: flutter pub get
 
-      - name: Build release APK (arm64-v8a + armeabi-v7a)
+      - name: Install rtlsdr_mobile app dependencies
+        working-directory: rtlsdr_mobile
+        run: flutter pub get
+
+      - name: Build example release APK (arm64-v8a + armeabi-v7a)
         working-directory: example
+        run: flutter build apk --release
+
+      - name: Build rtlsdr_mobile release APK (arm64-v8a + armeabi-v7a)
+        working-directory: rtlsdr_mobile
         run: flutter build apk --release
 
       - name: Package zipped build
@@ -88,14 +96,53 @@ jobs:
           cp README.md CHANGELOG.md LICENSE "$STAGE_DIR/"
           ZIP_PATH="dist/driver_rtlsdr-${VERSION}-android.zip"
           (cd dist && zip -r "$(basename "$ZIP_PATH")" "$(basename "$STAGE_DIR")")
+
+          # rtlsdr_mobile's APK is also published standalone (not just inside
+          # the zip above) so it can be installed straight from the release
+          # page with a single tap/download, no unzip step needed.
+          APK_PATH="dist/rtlsdr_mobile-${VERSION}-android.apk"
+          cp rtlsdr_mobile/build/app/outputs/flutter-apk/app-release.apk "$APK_PATH"
+
+          # Fixed-name copy + JSON manifest so an external site (e.g. our
+          # landing page) can always resolve the newest build without
+          # tracking version numbers itself. GitHub redirects
+          # .../releases/latest/download/<name> to whatever release is
+          # currently marked "Latest" — as long as every release uploads an
+          # asset with that exact fixed name, these two URLs never change:
+          #   https://github.com/<repo>/releases/latest/download/rtlsdr_mobile-latest.apk
+          #   https://github.com/<repo>/releases/latest/download/latest.json
+          LATEST_APK_PATH="dist/rtlsdr_mobile-latest.apk"
+          cp rtlsdr_mobile/build/app/outputs/flutter-apk/app-release.apk "$LATEST_APK_PATH"
+
+          APK_SHA256="$(sha256sum "$APK_PATH" | awk '{print $1}')"
+          MANIFEST_PATH="dist/latest.json"
+          cat > "$MANIFEST_PATH" <<EOF
+          {
+            "version": "$VERSION",
+            "tag": "$GITHUB_REF_NAME",
+            "published_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "apk_url": "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/rtlsdr_mobile-${VERSION}-android.apk",
+            "apk_latest_url": "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/rtlsdr_mobile-latest.apk",
+            "zip_url": "https://github.com/$GITHUB_REPOSITORY/releases/download/$GITHUB_REF_NAME/driver_rtlsdr-${VERSION}-android.zip",
+            "sha256": "$APK_SHA256"
+          }
+          EOF
+
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "zip_path=$ZIP_PATH" >> "$GITHUB_OUTPUT"
+          echo "apk_path=$APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "latest_apk_path=$LATEST_APK_PATH" >> "$GITHUB_OUTPUT"
+          echo "manifest_path=$MANIFEST_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           name: driver_rtlsdr ${{ steps.package.outputs.version }}
-          files: ${{ steps.package.outputs.zip_path }}
+          files: |
+            ${{ steps.package.outputs.zip_path }}
+            ${{ steps.package.outputs.apk_path }}
+            ${{ steps.package.outputs.latest_apk_path }}
+            ${{ steps.package.outputs.manifest_path }}
           generate_release_notes: true
 
   # ---------------------------------------------------------------------------
